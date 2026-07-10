@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.2](https://github.com/agentclientprotocol/claude-agent-acp/compare/v0.58.1...v0.58.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* Add subagent parent tool use attribution ([#859](https://github.com/agentclientprotocol/claude-agent-acp/issues/859)) ([9cd48c5](https://github.com/agentclientprotocol/claude-agent-acp/commit/9cd48c597af68f630774ec00bc3adc85f6b0fd4b))
+
 ## [0.58.1](https://github.com/agentclientprotocol/claude-agent-acp/compare/v0.58.0...v0.58.1) (2026-07-09)
 
 
