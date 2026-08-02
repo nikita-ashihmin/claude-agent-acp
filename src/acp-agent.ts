@@ -513,10 +513,10 @@ type Session = {
    *  tool_use block streams; this set makes the two paths converge regardless of
    *  order. Pruned at `tool_result` time alongside `toolUseCache`. */
   emittedToolCalls: Set<string>;
-  /** Last Markdown delivered through ACP's experimental `plan_update` lane,
-   *  keyed by plan id. Live ExitPlanMode updates are owned by the permission
-   *  path so the plan and referenced tool call are both delivered before the
-   *  permission request; replay uses the same cache without a concurrent ask. */
+  /** Last Markdown published through ACP's experimental `plan_update` lane,
+   *  keyed by plan id. The SDK can surface ExitPlanMode through the stream and
+   *  permission callback in either order; retaining the content makes those
+   *  paths converge without sending the same plan twice. */
   emittedPlanContent?: Map<string, string>;
   /** Registry of live background tasks, keyed by task id: populated at
    *  `task_started`, pruned when the task settles (a `task_notification` or
@@ -3506,7 +3506,6 @@ export class ClaudeAcpAgent {
                 taskState: session.taskState,
                 emittedToolCalls: session.emittedToolCalls,
                 emittedPlanContent: session.emittedPlanContent,
-                emitExitPlanUpdates: false,
                 messageId: currentStreamMessageId,
                 streamedToolInputs,
               },
@@ -3774,7 +3773,6 @@ export class ClaudeAcpAgent {
                 taskState: session.taskState,
                 emittedToolCalls: session.emittedToolCalls,
                 emittedPlanContent: session.emittedPlanContent,
-                emitExitPlanUpdates: false,
                 messageId: messageIdForGrouping(message),
                 toolUseResult: message.type === "user" ? message.tool_use_result : undefined,
                 // On the wire since CLI 2.1.216 but not in SDKUserMessage's
@@ -4509,14 +4507,9 @@ export class ClaudeAcpAgent {
       toolInput,
       this.clientCapabilities,
       (session.emittedPlanContent ??= new Map()),
-      parentToolUseId,
     );
     if (planUpdate) {
       await this.client.sessionUpdate(planUpdate);
-      session.emittedPlanContent.set(
-        claudePlanId(parentToolUseId),
-        (toolInput as { plan: string }).plan,
-      );
     }
     if (session.emittedToolCalls.has(toolCallId)) {
       return;
@@ -7012,10 +7005,6 @@ function toolCallNotification(
 
 const CLAUDE_PLAN_ID = "claude-plan";
 
-function claudePlanId(parentToolUseId?: string | null): string {
-  return parentToolUseId ? `${CLAUDE_PLAN_ID}:${parentToolUseId}` : CLAUDE_PLAN_ID;
-}
-
 function supportsPlanUpdates(clientCapabilities?: ClientCapabilities | null): boolean {
   return clientCapabilities?.plan != null;
 }
@@ -7031,9 +7020,7 @@ function exitPlanUpdate(
   toolInput: unknown,
   clientCapabilities?: ClientCapabilities | null,
   emittedPlanContent?: Map<string, string>,
-  parentToolUseId?: string | null,
 ): SessionNotification | undefined {
-  const planId = claudePlanId(parentToolUseId);
   if (
     toolName !== "ExitPlanMode" ||
     !supportsPlanUpdates(clientCapabilities) ||
@@ -7042,17 +7029,18 @@ function exitPlanUpdate(
     !("plan" in toolInput) ||
     typeof toolInput.plan !== "string" ||
     toolInput.plan.trim().length === 0 ||
-    emittedPlanContent?.get(planId) === toolInput.plan
+    emittedPlanContent?.get(CLAUDE_PLAN_ID) === toolInput.plan
   ) {
     return undefined;
   }
+  emittedPlanContent?.set(CLAUDE_PLAN_ID, toolInput.plan);
   return {
     sessionId,
     update: {
       sessionUpdate: "plan_update",
       plan: {
         type: "markdown",
-        planId,
+        planId: CLAUDE_PLAN_ID,
         content: toolInput.plan,
       },
     },
@@ -7148,10 +7136,6 @@ export function toAcpNotifications(
     // historical single-source behavior).
     emittedToolCalls?: Set<string>;
     emittedPlanContent?: Map<string, string>;
-    // Live ExitPlanMode plan updates are sent from canUseTool immediately
-    // before requestPermission, which gives strict clients deterministic
-    // ordering. Replay has no concurrent permission request and emits here.
-    emitExitPlanUpdates?: boolean;
     // Opaque id identifying the message these chunks belong to (ACP message ids
     // are opaque strings — no particular format is required). Attached to
     // user/agent message and thought chunks so clients can group streamed chunks
@@ -7276,22 +7260,15 @@ export function toAcpNotifications(
           // tool_result time once we have the task ID (for TaskCreate) and
           // confirmation that the change took effect.
         } else {
-          if (options?.emitExitPlanUpdates !== false) {
-            const planUpdate = exitPlanUpdate(
-              sessionId,
-              chunk.name,
-              chunk.input,
-              options?.clientCapabilities,
-              options?.emittedPlanContent,
-              options?.parentToolUseId,
-            );
-            if (planUpdate) {
-              output.push(planUpdate);
-              options?.emittedPlanContent?.set(
-                claudePlanId(options?.parentToolUseId),
-                (chunk.input as { plan: string }).plan,
-              );
-            }
+          const planUpdate = exitPlanUpdate(
+            sessionId,
+            chunk.name,
+            chunk.input,
+            options?.clientCapabilities,
+            options?.emittedPlanContent,
+          );
+          if (planUpdate) {
+            output.push(planUpdate);
           }
           // Only register hooks on first encounter to avoid double-firing
           if (registerHooks && !alreadyCached) {
@@ -7576,7 +7553,6 @@ export function streamEventToAcpNotifications(
     taskState?: TaskState;
     emittedToolCalls?: Set<string>;
     emittedPlanContent?: Map<string, string>;
-    emitExitPlanUpdates?: boolean;
     messageId?: string;
     streamedToolInputs?: StreamedToolInputCache;
   },
@@ -7591,7 +7567,6 @@ export function streamEventToAcpNotifications(
     taskState: options?.taskState,
     emittedToolCalls: options?.emittedToolCalls,
     emittedPlanContent: options?.emittedPlanContent,
-    emitExitPlanUpdates: options?.emitExitPlanUpdates,
     messageId: options?.messageId,
   };
   switch (event.type) {
