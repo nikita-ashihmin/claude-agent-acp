@@ -19,6 +19,7 @@ This tool implements an ACP agent by using the official [Claude Agent SDK](https
 - Session-scoped long-running goals through the provider-neutral [goal extension](docs/goal-extension.md)
 - Structured errors, recovery, and warnings through the opt-in [session failure extension](docs/session-failure-extension.md)
 - Tool permission presentation, editable choices, and durable effects through the [permission extension](docs/permission-extension.md)
+- A per-turn [agent file-change report](docs/agent-file-change-report.md) after capability negotiation
 
 Learn more about the [Agent Client Protocol](https://agentclientprotocol.com/).
 
