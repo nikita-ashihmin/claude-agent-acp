@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ClientCapabilities } from "@agentclientprotocol/sdk";
 import { AcpClient, toAcpNotifications, ToolUseCache } from "../acp-agent.js";
 import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client-capabilities.js";
+import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
+import { AcpToolCallRenderer } from "../tool-calls/renderer.js";
 
 const logger = { log: () => {}, error: () => {} };
 
@@ -293,5 +295,72 @@ describe("the ACP tool call contract", () => {
     expect(updates[0].content).toEqual([
       { type: "content", content: { type: "text", text: "done" } },
     ]);
+  });
+});
+
+describe("tool call reports outside the tool_use stream", () => {
+  const renderer = AcpToolCallRenderer.for(zed);
+
+  it("reports a memory recall as a completed read", () => {
+    expect(
+      renderer.memoryRecall({ uuid: "m", mode: "select", memories: [{ path: "/mem/a.md" }] }),
+    ).toEqual({
+      sessionUpdate: "tool_call",
+      toolCallId: "m",
+      title: "Recalled 1 memory",
+      kind: "read",
+      status: "completed",
+      locations: [{ path: "/mem/a.md" }],
+      _meta: { claudeCode: { toolName: "memory_recall", toolResponse: { mode: "select" } } },
+    });
+    expect(
+      renderer.memoryRecall({
+        uuid: "m",
+        mode: "synthesize",
+        memories: [{ path: "/mem/a.md", content: "Use pnpm" }],
+      }),
+    ).toMatchObject({
+      title: "Recalled synthesized memory",
+      content: [{ type: "content", content: { type: "text", text: "Use pnpm" } }],
+    });
+  });
+
+  it("sends the denial reason once", () => {
+    const denied = renderer.permissionDenied({
+      toolCallId: "t",
+      toolName: "Bash",
+      decisionReasonType: "rule",
+      decisionReason: "Denied by rule Bash(rm:*)",
+      message: "Denied by rule Bash(rm:*)",
+    }) as any;
+    expect(denied.content).toEqual([
+      {
+        type: "content",
+        content: { type: "text", text: "Permission denied: Denied by rule Bash(rm:*)" },
+      },
+    ]);
+    expect(denied._meta.claudeCode.toolResponse).toEqual({ decisionReasonType: "rule" });
+  });
+
+  it("sends the in_progress status of progress beats once", () => {
+    const tracker = new ToolCallFieldTracker();
+    tracker.apply(renderer.toolCall({ id: "t", name: "Agent", input: {} }));
+    const beat = (elapsedTimeSeconds: number) => {
+      const update = renderer.progress({
+        toolCallId: "t",
+        toolName: "Agent",
+        elapsedTimeSeconds,
+        subagentType: "Explore",
+      }) as any;
+      tracker.apply(update);
+      return update;
+    };
+    expect(beat(1).status).toBe("in_progress");
+    const second = beat(2);
+    expect(second).not.toHaveProperty("status");
+    expect(second._meta.claudeCode.toolResponse).toEqual({
+      elapsedTimeSeconds: 2,
+      subagentType: "Explore",
+    });
   });
 });

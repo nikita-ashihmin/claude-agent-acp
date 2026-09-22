@@ -12,7 +12,7 @@ import {
   withAirMeta,
 } from "../air-extension.js";
 import { ClientCapabilities } from "./client-capabilities.js";
-import { resultText, toAcpContentUpdate, toolResponseMarkers } from "./content.js";
+import { resultText, textContent, toAcpContentUpdate, toolResponseMarkers } from "./content.js";
 import type { ToolResultContext, ToolResultFacts, ToolUse, ToolUseFacts } from "./facts.js";
 import { reporterFor } from "./reporters/index.js";
 import { resolveSkillPath } from "./reporters/interaction.js";
@@ -364,6 +364,107 @@ export class AcpToolCallRenderer {
       sessionUpdate: "tool_call_update",
       ...(change.content ? { content: change.content } : {}),
       ...(change.locations ? { locations: change.locations } : {}),
+    };
+  }
+
+  /**
+   * The report of a memory recall: a completed read tool call. A synthesis
+   * shows the recalled text, a plain recall shows the memory files.
+   */
+  memoryRecall(recall: {
+    uuid: string;
+    mode: string;
+    memories: { path: string; content?: string }[];
+  }): ToolCallUpdate {
+    const isSynthesis = recall.mode === "synthesize";
+    const locations = isSynthesis ? [] : recall.memories.map((memory) => ({ path: memory.path }));
+    const content = isSynthesis
+      ? recall.memories.flatMap((memory) =>
+          typeof memory.content === "string" ? [textContent(memory.content)] : [],
+        )
+      : [];
+    const count = recall.memories.length;
+    return {
+      sessionUpdate: "tool_call",
+      toolCallId: recall.uuid,
+      title: isSynthesis
+        ? "Recalled synthesized memory"
+        : `Recalled ${count} ${count === 1 ? "memory" : "memories"}`,
+      kind: "read",
+      status: "completed",
+      ...(locations.length > 0 && { locations }),
+      ...(content.length > 0 && { content }),
+      _meta: {
+        claudeCode: { toolName: "memory_recall", toolResponse: { mode: recall.mode } },
+      } satisfies ToolUpdateMeta,
+    };
+  }
+
+  /**
+   * The report of a tool call that a rule, the classifier, or a mode denied
+   * before it ran. The reason is the result to show, so `toolResponse` keeps
+   * only the reason type, and the SDK message when it differs from the reason.
+   */
+  permissionDenied(denial: {
+    toolCallId: string;
+    toolName: string;
+    parentToolUseId?: string;
+    decisionReasonType?: string;
+    decisionReason?: string;
+    message?: string;
+  }): ToolCallUpdate {
+    const reason = denial.decisionReason ?? denial.message;
+    const extraMessage =
+      denial.decisionReason !== undefined &&
+      denial.message !== undefined &&
+      denial.message !== denial.decisionReason
+        ? { message: denial.message }
+        : {};
+    return {
+      sessionUpdate: "tool_call_update",
+      toolCallId: denial.toolCallId,
+      status: "failed",
+      content: [textContent(`Permission denied: ${reason}`)],
+      _meta: {
+        claudeCode: {
+          toolName: denial.toolName,
+          ...(denial.parentToolUseId ? { parentToolUseId: denial.parentToolUseId } : {}),
+          toolResponse: { decisionReasonType: denial.decisionReasonType, ...extraMessage },
+        },
+      } satisfies ToolUpdateMeta,
+    };
+  }
+
+  /**
+   * The report of a tool progress beat. The field tracker sends the
+   * `in_progress` status once, so a later beat carries only the progress.
+   */
+  progress(beat: {
+    toolCallId: string;
+    toolName: string;
+    parentToolUseId?: string;
+    elapsedTimeSeconds: number;
+    subagentType?: string;
+    subagentRetry?: unknown;
+  }): ToolCallUpdate {
+    return {
+      sessionUpdate: "tool_call_update",
+      toolCallId: beat.toolCallId,
+      status: "in_progress",
+      _meta: {
+        claudeCode: {
+          toolName: beat.toolName,
+          ...(beat.parentToolUseId ? { parentToolUseId: beat.parentToolUseId } : {}),
+          toolResponse: {
+            elapsedTimeSeconds: beat.elapsedTimeSeconds,
+            // For Agent/Task calls: the subagent type, and the SDK retry
+            // counters while the subagent waits out an API rate limit, so a
+            // client can show why a spawn looks stalled.
+            ...(beat.subagentType !== undefined && { subagentType: beat.subagentType }),
+            ...(beat.subagentRetry !== undefined && { subagentRetry: beat.subagentRetry }),
+          },
+        },
+      } satisfies ToolUpdateMeta,
     };
   }
 

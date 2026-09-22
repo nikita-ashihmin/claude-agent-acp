@@ -5,10 +5,17 @@ type SessionUpdate = SessionNotification["update"];
 /**
  * The tool-call fields that a client overwrites when a `tool_call_update`
  * carries them. ACP replaces a present `content` or `locations` list as a
- * whole, and `rawInput` and `rawOutput` are whole values. `status` is not
- * tracked: `tool_progress` changes it outside the tracker, and it is small.
+ * whole, and `rawInput` and `rawOutput` are whole values.
  */
-const REPLACED_FIELDS = ["title", "kind", "content", "locations", "rawInput", "rawOutput"] as const;
+const REPLACED_FIELDS = [
+  "status",
+  "title",
+  "kind",
+  "content",
+  "locations",
+  "rawInput",
+  "rawOutput",
+] as const;
 
 type ReplacedField = (typeof REPLACED_FIELDS)[number];
 

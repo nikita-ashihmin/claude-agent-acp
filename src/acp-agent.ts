@@ -4308,42 +4308,9 @@ export class ClaudeAcpAgent {
                 break;
               }
               case "memory_recall": {
-                const isSynthesis = message.mode === "synthesize";
-                const locations = isSynthesis
-                  ? []
-                  : message.memories.map((m) => ({ path: m.path }));
-                const content = isSynthesis
-                  ? message.memories
-                      .filter(
-                        (m): m is (typeof message.memories)[number] & { content: string } =>
-                          typeof m.content === "string",
-                      )
-                      .map((m) => ({
-                        type: "content" as const,
-                        content: { type: "text" as const, text: m.content },
-                      }))
-                  : [];
-                const count = message.memories.length;
-                const title = isSynthesis
-                  ? "Recalled synthesized memory"
-                  : `Recalled ${count} ${count === 1 ? "memory" : "memories"}`;
                 await sendUpdate({
                   sessionId: message.session_id,
-                  update: {
-                    sessionUpdate: "tool_call",
-                    toolCallId: message.uuid,
-                    title,
-                    kind: "read",
-                    status: "completed",
-                    ...(locations.length > 0 && { locations }),
-                    ...(content.length > 0 && { content }),
-                    _meta: {
-                      claudeCode: {
-                        toolName: "memory_recall",
-                        toolResponse: { mode: message.mode },
-                      },
-                    } satisfies ToolUpdateMeta,
-                  },
+                  update: AcpToolCallRenderer.for(this.clientCapabilities).memoryRecall(message),
                 });
                 break;
               }
@@ -4417,32 +4384,17 @@ export class ClaudeAcpAgent {
                   // child tool call was not announced there.
                   break;
                 }
-                const reason = message.decision_reason ?? message.message;
-                await sendUpdate({
-                  sessionId: message.session_id,
-                  update: {
-                    sessionUpdate: "tool_call_update",
-                    toolCallId: message.tool_use_id,
-                    status: "failed",
-                    content: [
-                      {
-                        type: "content",
-                        content: { type: "text", text: `Permission denied: ${reason}` },
-                      },
-                    ],
-                    _meta: {
-                      claudeCode: {
-                        toolName: message.tool_name,
-                        ...(parentToolUseId ? { parentToolUseId } : {}),
-                        toolResponse: {
-                          decisionReasonType: message.decision_reason_type,
-                          decisionReason: message.decision_reason,
-                          message: message.message,
-                        },
-                      },
-                    } satisfies ToolUpdateMeta,
-                  },
+                const denied = AcpToolCallRenderer.for(this.clientCapabilities).permissionDenied({
+                  toolCallId: message.tool_use_id,
+                  toolName: message.tool_name,
+                  parentToolUseId,
+                  decisionReasonType: message.decision_reason_type,
+                  decisionReason: message.decision_reason,
+                  message: message.message,
                 });
+                if (toolCallFieldsOf(session).apply(denied)) {
+                  await sendUpdate({ sessionId: message.session_id, update: denied });
+                }
                 break;
               }
               case "informational": {
@@ -5897,36 +5849,17 @@ export class ClaudeAcpAgent {
                 ? message.parent_tool_use_id
                 : undefined
               : undefined;
-            await sendUpdate({
-              sessionId: message.session_id,
-              update: {
-                sessionUpdate: "tool_call_update",
-                toolCallId,
-                status: "in_progress",
-                _meta: {
-                  claudeCode: {
-                    toolName: message.tool_name,
-                    ...(subagentParentToolUseId
-                      ? { parentToolUseId: subagentParentToolUseId }
-                      : {}),
-                    toolResponse: {
-                      elapsedTimeSeconds: message.elapsed_time_seconds,
-                      // For Agent/Task calls: the subagent's type, and — when
-                      // the subagent is waiting out an API rate-limit retry —
-                      // the SDK's retry counters (attempt, max_retries,
-                      // retry_delay_ms, …), forwarded verbatim so clients can
-                      // show why a spawn looks stalled.
-                      ...(message.subagent_type !== undefined && {
-                        subagentType: message.subagent_type,
-                      }),
-                      ...(message.subagent_retry !== undefined && {
-                        subagentRetry: message.subagent_retry,
-                      }),
-                    },
-                  },
-                } satisfies ToolUpdateMeta,
-              },
+            const beat = AcpToolCallRenderer.for(this.clientCapabilities).progress({
+              toolCallId,
+              toolName: message.tool_name,
+              parentToolUseId: subagentParentToolUseId,
+              elapsedTimeSeconds: message.elapsed_time_seconds,
+              subagentType: message.subagent_type,
+              subagentRetry: message.subagent_retry,
             });
+            if (toolCallFieldsOf(session).apply(beat)) {
+              await sendUpdate({ sessionId: message.session_id, update: beat });
+            }
             break;
           }
           case "rate_limit_event": {
