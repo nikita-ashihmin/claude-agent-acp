@@ -44,13 +44,27 @@ Each extension is shaped so that it can become a first-class ACP API later.
 
 ## Compatibility rule
 
-A client that does not declare `initialize.clientCapabilities._meta.jetbrains.air` gets the standard ACP shape plus the Zed conventions.
-It gets exactly what it got before these extensions existed.
-AIR-only shaping applies only to AIR.
+An AIR client declares `initialize.clientCapabilities._meta.jetbrains.air` (see [Client declaration](#client-declaration)).
+Every extension in this document applies only to an AIR client.
 
-Some AIR keys are presentation hints that the adapter sends to every client.
-The [AIR metadata keys](#air-metadata-keys) table marks them as "always".
-A client that does not know such a key can ignore it and loses nothing that it can render.
+A client that does not declare `_meta.jetbrains.air` is not AIR. Zed is such a client.
+It gets the same information in the same fields as from the upstream adapter:
+
+- the standard ACP fields with the upstream values, and the [Zed conventions](#zed-conventions);
+- the upstream `_meta` keys: `claudeCode.toolName`, `claudeCode.parentToolUseId`, the full `claudeCode.toolResponse`, `claudeCode.promptQueueing`, and the `_claude/*` keys;
+- the keys of other teams: `steering`, `quota`, `authStatus`, and `gateway`.
+
+It gets no key that exists only for AIR.
+It gets no `_meta.jetbrains.air` key at all, and none of the removed upstream copies of an AIR key (see [Removed keys](#removed-keys)).
+
+The adapter leaves out only repeated data for such a client:
+
+- A `tool_call_update` leaves out a field or a `_meta` key whose value did not change since the previous report of the same tool call.
+  An update with nothing new is not sent.
+- Streamed subagent text is not sent again in full when the complete message arrives, for a client that gets the complete message.
+- A compaction summary is not sent again in full when the chunks that went out before it hold the same text.
+
+`src/tests/acp-scenarios.test.ts` compares the traffic of a plain client and of Zed with recordings of origin/main.
 
 ## Negotiation
 
@@ -83,7 +97,7 @@ A malformed declaration enables no capability.
 
 ### Agent declaration
 
-The `initialize` response always carries the agent side of the extension:
+The `initialize` response of an AIR client carries the agent side of the extension:
 
 ```json
 {
@@ -111,8 +125,9 @@ The `initialize` response always carries the agent side of the extension:
 }
 ```
 
-The agent list does not depend on the client list.
+The agent list does not depend on the capabilities that AIR declares.
 An extension is active only when the client declared its capability.
+The response to a client that is not AIR has no `_meta.jetbrains` key.
 
 ### Capabilities
 
@@ -136,26 +151,27 @@ The agent advertises the `goal` object, and the client uses the control method w
 
 Every payload goes into `_meta.jetbrains.air`, next to `version: 1`.
 The adapter merges a payload into an existing `_meta` and keeps the other namespaces.
+The adapter sends these keys only to an AIR client. "AIR" in the Gate column means an AIR client without a further capability.
 
-| Key                            | Message and field path                                                                | Shape                                                                  | Gate                                              |
-| ------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------- |
-| `capabilities`                 | `initialize` response `_meta.jetbrains.air`                                           | string array                                                           | always                                            |
-| `goal`                         | `initialize` response `_meta.jetbrains.air`                                           | `{version: 1, controlMethod, actions}`                                 | always                                            |
-| `goal`                         | `session_info_update._meta.jetbrains.air`                                             | goal snapshot or `null`                                                | always                                            |
-| `diffPatch`                    | tool call and permission request `content[]` of type `diff`, `_meta.jetbrains.air`    | `{version: 1, format: "git_patch", text}`                              | `diffPatch`                                       |
-| `permission`                   | `session/request_permission` request `_meta.jetbrains.air`                            | `{version: 1, title, description?, defaultToNo?}`                      | always                                            |
-| `recommendedValue`             | `model` and effort config options, `_meta.jetbrains.air`                              | option value string                                                    | `recommendedValue`                                |
-| `asyncTasks`                   | Bash `tool_call_update._meta.jetbrains.air`                                           | `{backgrounded: true}`                                                 | `asyncTasks`                                      |
-| `agentFileChangeReportRequest` | `session/prompt` request `_meta.jetbrains.air` (client to agent)                      | `{version: 1, requestId}`                                              | `agentFileChangeReport`                           |
-| `agentFileChangeReport`        | `session_info_update._meta.jetbrains.air`                                             | report object                                                          | `agentFileChangeReport`                           |
-| `sessionFailure`               | `session_info_update._meta.jetbrains.air` or `PromptResponse._meta.jetbrains.air`     | failure record                                                         | `sessionFailure`                                  |
-| `commandTitle`                 | Bash and PowerShell tool call `_meta.jetbrains.air`                                   | the `description` input string                                         | always                                            |
-| `subagent`                     | Agent and Task tool call `_meta.jetbrains.air`                                        | `true`                                                                 | always                                            |
-| `skill`                        | Skill tool call `_meta.jetbrains.air`                                                 | `{name, path?}`                                                        | always                                            |
-| `contextCompaction`            | compaction tool call or `compaction_update`, `_meta.jetbrains.air`                    | `{version: 1, trigger?, preTokens?, postTokens?, durationMs?, error?}` | always                                            |
-| `customAnswer`                 | elicitation schema property `_meta.jetbrains.air`                                     | `{questionId, isCustomAnswer: true}`                                   | always, when the client supports form elicitation |
-| `kind`                         | session mode `_meta.jetbrains.air` and mode config option value `_meta.jetbrains.air` | `standard`, `plan`, `auto_review`, or `full_access`                    | always                                            |
-| `fork`                         | `session/fork` request `_meta.jetbrains.air` (client to agent)                        | `{version: 1, messageId, messageFingerprint?, messageOccurrence?}`     | none                                              |
+| Key                            | Message and field path                                                                | Shape                                                                  | Gate                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------- |
+| `capabilities`                 | `initialize` response `_meta.jetbrains.air`                                           | string array                                                           | AIR                                            |
+| `goal`                         | `initialize` response `_meta.jetbrains.air`                                           | `{version: 1, controlMethod, actions}`                                 | AIR                                            |
+| `goal`                         | `session_info_update._meta.jetbrains.air`                                             | goal snapshot or `null`                                                | AIR                                            |
+| `diffPatch`                    | tool call and permission request `content[]` of type `diff`, `_meta.jetbrains.air`    | `{version: 1, format: "git_patch", text}`                              | `diffPatch`                                    |
+| `permission`                   | `session/request_permission` request `_meta.jetbrains.air`                            | `{version: 1, title, description?, defaultToNo?}`                      | AIR                                            |
+| `recommendedValue`             | `model` and effort config options, `_meta.jetbrains.air`                              | option value string                                                    | `recommendedValue`                             |
+| `asyncTasks`                   | Bash `tool_call_update._meta.jetbrains.air`                                           | `{backgrounded: true}`                                                 | `asyncTasks`                                   |
+| `agentFileChangeReportRequest` | `session/prompt` request `_meta.jetbrains.air` (client to agent)                      | `{version: 1, requestId}`                                              | `agentFileChangeReport`                        |
+| `agentFileChangeReport`        | `session_info_update._meta.jetbrains.air`                                             | report object                                                          | `agentFileChangeReport`                        |
+| `sessionFailure`               | `session_info_update._meta.jetbrains.air` or `PromptResponse._meta.jetbrains.air`     | failure record                                                         | `sessionFailure`                               |
+| `commandTitle`                 | Bash and PowerShell tool call `_meta.jetbrains.air`                                   | the `description` input string                                         | AIR                                            |
+| `subagent`                     | Agent and Task tool call `_meta.jetbrains.air`                                        | `true`                                                                 | AIR                                            |
+| `skill`                        | Skill tool call `_meta.jetbrains.air`                                                 | `{name, path?}`                                                        | AIR                                            |
+| `contextCompaction`            | compaction tool call or `compaction_update`, `_meta.jetbrains.air`                    | `{version: 1, trigger?, preTokens?, postTokens?, durationMs?, error?}` | AIR                                            |
+| `customAnswer`                 | elicitation schema property `_meta.jetbrains.air`                                     | `{questionId, isCustomAnswer: true}`                                   | AIR, when the client supports form elicitation |
+| `kind`                         | session mode `_meta.jetbrains.air` and mode config option value `_meta.jetbrains.air` | `standard`, `plan`, `auto_review`, or `full_access`                    | AIR                                            |
+| `fork`                         | `session/fork` request `_meta.jetbrains.air` (client to agent)                        | `{version: 1, messageId, messageFingerprint?, messageOccurrence?}`     | none                                           |
 
 ## JetBrains shared keys
 
@@ -166,14 +182,15 @@ The adapter keeps them where they are.
 | Key                     | Where                                                                                                                                     | Meaning                                                                            |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `terminal_output_delta` | client `initialize` `clientCapabilities._meta.terminal_output_delta: true`; tool call `_meta.terminal_output_delta = {terminal_id, data}` | The client appends the command output. The flag also enables the terminal channel. |
-| `is_mcp_tool_call`      | `tool_call._meta.is_mcp_tool_call: true`                                                                                                  | The tool call is an MCP tool call (`mcp__*`).                                      |
+| `is_mcp_tool_call`      | `tool_call._meta.is_mcp_tool_call: true`, AIR only                                                                                        | The tool call is an MCP tool call (`mcp__*`).                                      |
 | `steering`              | `initialize` response `_meta.steering = {supported: true}`                                                                                | The agent accepts `_session/steering` for a running turn.                          |
 | `quota`                 | `PromptResponse._meta.quota`                                                                                                              | Token usage of the turn, also split by model.                                      |
 | `authStatus`            | `initialize` response `agentCapabilities._meta.authStatus`                                                                                | The agent pushes `_auth/status_update`. The object carries no payload.             |
 
 ## Zed conventions
 
-The adapter keeps these Zed and upstream conventions unchanged for every client:
+The adapter keeps these Zed and upstream conventions unchanged for every client.
+An AIR client that declares `terminal_output_delta` gets appends instead of `terminal_output`.
 
 - A client that declares `clientCapabilities._meta.terminal_output: true` gets the terminal channel.
   A command tool call then has `content: [{type: "terminal", terminalId}]` and `_meta.terminal_info = {terminal_id}`.
@@ -184,6 +201,7 @@ The adapter keeps these Zed and upstream conventions unchanged for every client:
 - A client that declares `clientCapabilities._meta["terminal-auth"]: true` gets `_meta["terminal-auth"] = {command, args, label}` on the terminal login methods.
 - The upstream `_meta.claudeCode.*` keys stay as they are.
   Examples are `claudeCode.toolName`, `claudeCode.parentToolUseId`, `claudeCode.toolResponse`, `claudeCode.nonExecutionKind`, and `claudeCode.options` on `session/new`.
+  A client that is not AIR gets the full PostToolUse `toolResponse`. AIR gets only its `status` and `isAsync` markers.
 
 The terminal id is the tool use id.
 Claude reports a command once, when it ends, so the output travels in one update.
@@ -191,8 +209,9 @@ Claude reports a command once, when it ends, so the output travels in one update
 
 ## Tool call contract
 
-Every client gets the standard ACP tool call shape.
-Each fact goes in exactly one field.
+An AIR client gets the standard ACP tool call shape, and each fact goes in exactly one field.
+A client that is not AIR gets the upstream fields (see [Compatibility rule](#compatibility-rule)).
+The table [Claude tools and ACP fields](#claude-tools-and-acp-fields) names the differences.
 
 | Fact                                                                                    | The only field that carries it                                                          |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -225,34 +244,46 @@ Rules:
 - A `ToolReporter` per Claude tool reads the SDK data once and produces tool facts.
 - One `AcpToolCallRenderer` turns the facts into ACP fields.
   It reads the client choices from one `ClientCapabilities` object.
-- A `ToolCallFieldTracker` drops the fields that an earlier report of the same tool call already sent.
+- A `ToolCallFieldTracker` drops the fields that an earlier report of the same tool call already sent, for every client.
 - The `jetbrains.air` capabilities are AIR capabilities.
   The adapter does not treat them as a generic client feature.
+- `ClientCapabilities.air.client` is true for an AIR client. Each AIR-only choice of the renderer reads it.
 
 ## Claude tools and ACP fields
 
-The table shows the fields that differ between AIR and other clients.
+The table shows the fields that differ between AIR and a client that is not AIR.
 A field that the table does not name is the same for every client.
 
-| Claude tool                                                    | Standard shape for every client                                                                                                                                 | AIR difference                                                                                                                                                                                                             |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Bash`, `PowerShell`                                           | `kind: execute`, `title` is the command. Terminal channel or a `console` code block, see [Zed conventions](#zed-conventions).                                   | `_meta.jetbrains.air.commandTitle` holds the description. With `rawInputRendering`, no copy of the description in `content`. With `asyncTasks`, a backgrounded command gets `_meta.jetbrains.air.asyncTasks.backgrounded`. |
-| `Read`                                                         | `kind: read`, `title: "Read <path>"` with the line range, `locations` with the line. The file text goes to `content`.                                           | none                                                                                                                                                                                                                       |
-| `Write`                                                        | `kind: edit`, `title: "Write <path>"`, a `diff` block with the new content. `rawInput` has no `content`. The PostToolUse hook sends the final diff.             | With `diffPatch`, a creation patch in the tool call and an exact patch after the write.                                                                                                                                    |
-| `Edit`                                                         | `kind: edit`, `title: "Edit <path>"`, a `diff` block of the snippet. `rawInput` has no `old_string` or `new_string`. The PostToolUse hook sends the final diff. | With `diffPatch`, an exact preview patch in the permission request and an exact patch after the edit.                                                                                                                      |
-| `NotebookEdit`                                                 | `kind: edit`, a title such as `Edit cell <id> in <path>`. ACP has no notebook diff, so the new cell source stays in `rawInput`.                                 | With `rawInputRendering`, no copy of the cell source in `content`.                                                                                                                                                         |
-| `Glob`, `Grep`                                                 | `kind: search`, a title that names the pattern. `Grep` uses the equivalent grep command line. The result goes to `content`.                                     | none                                                                                                                                                                                                                       |
-| `WebFetch`                                                     | `kind: fetch`, `title: "Fetch <url>"`. The answer goes to `content`.                                                                                            | With `rawInputRendering`, no copy of the prompt in `content`.                                                                                                                                                              |
-| `WebSearch`                                                    | `kind: fetch`, `title: "Search \"<query>\""`. The hits go to `content`.                                                                                         | none                                                                                                                                                                                                                       |
-| `Agent`, `Task`                                                | `kind: think`, `title` is the description, `_meta.jetbrains.air.subagent: true`. The report goes to `content` without the model-directed trailer.               | With `rawInputRendering`, no copy of the prompt in `content`. With native subagent sessions, the subagent is a child session.                                                                                              |
-| `ExitPlanMode`                                                 | `kind: switch_mode`, `title: "Approve Plan"`. The rejection reason goes to `rawOutput`.                                                                         | With `rawInputRendering`, no copy of the plan in `content`.                                                                                                                                                                |
-| `AskUserQuestion`                                              | `kind: other`, `title: "Asking for your input"`. The questions go to ACP form elicitation.                                                                      | With `rawInputRendering`, no copy of the questions in `content`. See [Question custom answers](#question-custom-answers).                                                                                                  |
-| `Skill`                                                        | `kind: other`, `title: "Load skill: <name>"`, `_meta.jetbrains.air.skill`.                                                                                      | none                                                                                                                                                                                                                       |
-| `TodoWrite`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` | The stream reports them as a standard `plan` with entries. Only a permission request shows them as a tool call.                                                 | none                                                                                                                                                                                                                       |
-| `ReportFindings`                                               | `kind: think`, `title: "Report <n> findings"`.                                                                                                                  | With `rawInputRendering`, no copy of the findings in `content`.                                                                                                                                                            |
-| MCP tools (`mcp__*`) and other tools                           | `kind: other`, `title` is the tool name, `_meta.is_mcp_tool_call` for MCP. The result text goes to `content`.                                                   | none                                                                                                                                                                                                                       |
-| Context compaction                                             | `compaction_update` when the client declares `session.compaction`. Otherwise a synthetic tool call.                                                             | Both forms carry `_meta.jetbrains.air.contextCompaction`.                                                                                                                                                                  |
-| Background work that is not a subagent                         | none                                                                                                                                                            | With `asyncTasks`, async task updates.                                                                                                                                                                                     |
+For every tool, a client that is not AIR also gets these upstream fields:
+
+- The first `tool_call` of a streamed tool use carries `rawInput: {}`. Each partial refinement carries the partial input as `rawInput`.
+- `rawOutput` repeats the raw `tool_result` unless the terminal channel carried it. AIR gets `rawOutput` only when no other field carries the result.
+- The PostToolUse hook sends an update with the full `claudeCode.toolResponse` for every tool.
+- A permission denial carries `claudeCode.toolResponse = {decisionReasonType, decisionReason, message}`.
+- A permission request repeats the whole tool call (see [Tool call of the request](#tool-call-of-the-request)).
+- Each `plan` of the Task* tools goes out, also when it repeats the previous plan.
+- The streamed text of a subagent goes out on the root session.
+  AIR gets it only with native subagent sessions, the `subagent-transcript` capability, or the `forwardSubagentText` option.
+
+| Claude tool                                                    | Shape for every client                                                                                                        | AIR                                                                                                                                                                                            | A client that is not AIR                                                                         |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Bash`, `PowerShell`                                           | `kind: execute`, `title` is the command. Terminal channel or a `console` code block, see [Zed conventions](#zed-conventions). | `_meta.jetbrains.air.commandTitle` holds the description. With `rawInputRendering`, no copy of the description in `content`. With `asyncTasks`, `_meta.jetbrains.air.asyncTasks.backgrounded`. | The final update repeats `content: [{type: "terminal"}]`.                                        |
+| `Read`                                                         | `kind: read`, `title: "Read <path>"` with the line range, `locations` with the line. The file text goes to `content`.         | none                                                                                                                                                                                           | none                                                                                             |
+| `Write`                                                        | `kind: edit`, `title: "Write <path>"`, a `diff` block with the new content. The PostToolUse hook sends the final diff.        | `rawInput` has no `content`. With `diffPatch`, a creation patch in the tool call and an exact patch after the write.                                                                           | `rawInput` keeps `content`.                                                                      |
+| `Edit`                                                         | `kind: edit`, `title: "Edit <path>"`, a `diff` block of the snippet. The PostToolUse hook sends the final diff.               | `rawInput` has no `old_string` or `new_string`. With `diffPatch`, an exact preview patch in the permission request and an exact patch after the edit.                                          | `rawInput` keeps `old_string` and `new_string`.                                                  |
+| `NotebookEdit`                                                 | The result text goes to `content`, unless AIR shows the cell source.                                                          | `kind: edit`, a title such as `Edit cell <id> in <path>`, the cell source in `rawInput` and, without `rawInputRendering`, once in `content`.                                                   | `title: "NotebookEdit"`, `kind: other`, no content before the result.                            |
+| `Glob`, `Grep`                                                 | `kind: search`, a title that names the pattern. `Grep` uses the equivalent grep command line. The result goes to `content`.   | none                                                                                                                                                                                           | none                                                                                             |
+| `WebFetch`                                                     | `kind: fetch`, `title: "Fetch <url>"`. The answer goes to `content`.                                                          | With `rawInputRendering`, no copy of the prompt in `content`.                                                                                                                                  | none                                                                                             |
+| `WebSearch`                                                    | `kind: fetch`, `title: "Search \"<query>\""`. The hits go to `content`.                                                       | none                                                                                                                                                                                           | none                                                                                             |
+| `Agent`, `Task`                                                | `kind: think`, `title` is the description. The report goes to `content` without the model-directed trailer.                   | `_meta.jetbrains.air.subagent: true`. With `rawInputRendering`, no copy of the prompt in `content`. With native subagent sessions, the subagent is a child session.                            | none                                                                                             |
+| `ExitPlanMode`                                                 | `kind: switch_mode`, `title: "Approve Plan"`, `title: "Exited Plan Mode"` after the approval.                                 | The rejection reason goes to `rawOutput` only. With `rawInputRendering`, no copy of the plan in `content`.                                                                                     | The rejection reason goes to `content` and to `rawOutput`, and the approval text to `rawOutput`. |
+| `AskUserQuestion`                                              | `kind: other`. The questions go to ACP form elicitation.                                                                      | `title: "Asking for your input"`. With `rawInputRendering`, no copy of the questions in `content`. See [Question custom answers](#question-custom-answers).                                    | The title of a single question is the question.                                                  |
+| `Skill`                                                        | `kind: other`, `title: "Load skill: <name>"`.                                                                                 | `_meta.jetbrains.air.skill`.                                                                                                                                                                   | none                                                                                             |
+| `TodoWrite`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` | The stream reports them as a standard `plan` with entries. Only a permission request shows them as a tool call.               | A plan that repeats the previous plan is not sent.                                                                                                                                             | Every plan goes out.                                                                             |
+| `ReportFindings`                                               | `kind: think`, `title: "Report <n> findings"`.                                                                                | With `rawInputRendering`, no copy of the findings in `content`.                                                                                                                                | none                                                                                             |
+| MCP tools (`mcp__*`) and other tools                           | `kind: other`, `title` is the tool name. The result text goes to `content`.                                                   | `_meta.is_mcp_tool_call` for MCP.                                                                                                                                                              | none                                                                                             |
+| Context compaction                                             | `compaction_update` when the client declares `session.compaction`. Otherwise a synthetic tool call.                           | Both forms carry `_meta.jetbrains.air.contextCompaction`.                                                                                                                                      | See [Context compaction](#context-compaction).                                                   |
+| Background work that is not a subagent                         | none                                                                                                                          | With `asyncTasks`, async task updates.                                                                                                                                                         | none                                                                                             |
 
 ## Diff patch
 
@@ -262,7 +293,7 @@ It applies to an ACP `diff` content block.
 ### Activation
 
 The adapter uses patch mode only when the client declares `diffPatch`.
-The agent always advertises `diffPatch`.
+The agent advertises `diffPatch` to an AIR client.
 Without the client declaration, the adapter sends the standard `oldText` and `newText` values.
 
 ### Diff content
@@ -350,9 +381,9 @@ A created file gets a creation patch.
 ## Permission presentation
 
 The adapter uses standard ACP permission requests and responses.
-The optional `_meta.jetbrains.air.permission` record adds compact presentation text.
+The optional `_meta.jetbrains.air.permission` record adds compact presentation text for an AIR client.
 `RequestPermissionRequest.toolCall`, `options`, `RequestPermissionResponse.outcome`, and the `kind` of each option stay authoritative.
-The record needs no capability negotiation. A client can ignore it.
+The record needs no further capability. A client that is not AIR gets no record.
 
 ### Request lifecycle
 
@@ -411,7 +442,7 @@ The adapter does not copy the SDK `description` subtitle into the record.
 
 ### Tool call of the request
 
-The request `toolCall` carries `toolCallId`, `title`, and `rawInput`.
+For AIR, the request `toolCall` carries `toolCallId`, `title`, and `rawInput`.
 The client already has the rest of the tool call, because the adapter sends the `tool_call` first.
 
 - `title` is the standard tool call title. A Sandbox Network request uses the host. A Computer Use request uses the display name.
@@ -419,6 +450,10 @@ The client already has the rest of the tool call, because the adapter sends the 
 - `content` is present only with an exact preview patch for a `diffPatch` client.
 - `locations` is present only when a valid `blockedPath` is not a location of the tool call yet.
 - `_meta.claudeCode.mcpServer` names the MCP server of an `mcp__*` tool.
+
+A client that is not AIR gets the upstream request `toolCall`: `toolCallId`, `name`, `status: pending`, the whole `rawInput`, `title`, `kind`, `content`, and `locations`.
+Its `_meta.claudeCode` carries `toolName`, and `parentToolUseId` for a subagent tool call, next to `mcpServer`.
+A Sandbox Network or Computer Use request without content shows its input as a JSON code block.
 
 Compact text removes control characters, collapses whitespace where it is safe, and enforces length limits.
 The adapter omits an invalid optional text. It does not truncate it into misleading UI.
@@ -558,9 +593,11 @@ The goal extension exposes a long-running, session-scoped objective.
 It is shaped like a possible future first-class ACP API.
 The payload has no provider-specific fields.
 
+The goal extension applies only to an AIR client.
+
 ### Capability
 
-The `initialize` response advertises the goal support:
+The `initialize` response to AIR advertises the goal support:
 
 ```json
 { "version": 1, "controlMethod": "_session/goal", "actions": ["set", "clear"] }
@@ -975,10 +1012,10 @@ This section covers only the AIR bridge.
 - Released ACP SDKs can strip that draft field.
   AIR can instead declare `nativeSubagentSessions` in `_meta.jetbrains.air.capabilities`.
 - Either signal enables native subagent sessions. The canonical field takes precedence when it is available.
-- The agent always advertises `nativeSubagentSessions` and `agentCapabilities.sessionCapabilities.subagents`.
+- The agent advertises `nativeSubagentSessions` to AIR, and `agentCapabilities.sessionCapabilities.subagents` to every client.
 - With native sessions, the adapter sends `subagent_spawned` and `subagent_state_update`.
   The child output goes to the child session. The Agent or Task tool call is not the subagent card.
-- Without either signal, Agent and Task stay ordinary tool calls with `_meta.jetbrains.air.subagent: true`.
+- Without either signal, Agent and Task stay ordinary tool calls. AIR gets `_meta.jetbrains.air.subagent: true` on them.
   Child interactions stay on the root session.
 - A client that uses the older `_meta["subagent-transcript"]` capability or the `forwardSubagentText` session option keeps the flat child transcript.
 
@@ -989,7 +1026,7 @@ It then sends `compaction_update` and `compaction_summary_chunk`.
 Every other client gets a synthetic tool call:
 `toolCallId` is the compaction id, `title: "Compact conversation"`, `kind: think`.
 
-Both forms carry `_meta.jetbrains.air.contextCompaction`:
+For AIR, both forms carry `_meta.jetbrains.air.contextCompaction`:
 
 ```json
 {
@@ -1014,13 +1051,17 @@ The standard `toolCallId` or `compactionId` and the `status` own the identity an
 The `compaction_update` form puts the error in the standard `error` field.
 The tool call form also puts the error in `content` once, as `Compaction failed: <error>`.
 
+A client that is not AIR gets the upstream fields and no `contextCompaction` key.
+The tool call form carries `_meta.claudeCode.toolName: "compact"`, and the facts in `rawOutput` at the end.
+The `compaction_update` form carries no `_meta`.
+
 ## Question custom answers
 
 `AskUserQuestion` goes to the client as an ACP form elicitation.
 Without form elicitation support, the adapter disables the tool when it creates the Claude session.
 
 Each question gets a select field and a companion text field named `Other`.
-The companion field carries `_meta.jetbrains.air.customAnswer`:
+For AIR, the companion field carries `_meta.jetbrains.air.customAnswer`:
 
 ```json
 { "questionId": "<select field key>", "isCustomAnswer": true }
@@ -1074,11 +1115,11 @@ Each session mode and each value of the mode config option carries `_meta.jetbra
 | `auto`              | Auto               | `auto_review` |
 | `bypassPermissions` | Bypass permissions | `full_access` |
 
-The adapter sends the key to every client.
+The adapter sends the key only to an AIR client.
 
 ## Removed keys
 
-These keys moved into the AIR namespace. The adapter no longer sends the old key.
+These keys moved into the AIR namespace. The adapter sends the new key only to AIR, and the old key to no client.
 
 | Old key                                                   | New key                                        |
 | --------------------------------------------------------- | ---------------------------------------------- |
@@ -1087,4 +1128,6 @@ These keys moved into the AIR namespace. The adapter no longer sends the old key
 | elicitation property `_meta._askUserQuestionCustomAnswer` | `_meta.jetbrains.air.customAnswer`, same value |
 | tool call `_meta.contextCompaction`                       | `_meta.jetbrains.air.contextCompaction`        |
 
-The adapter does not send `_meta.claudeCode.title`, `claudeCode.subagent`, `claudeCode.skill`, or `claudeCode.skillPath`.
+The adapter does not send `_meta.claudeCode.title`, `claudeCode.subagent`, `claudeCode.skill`, or `claudeCode.skillPath` to any client.
+AIR reads `_meta.jetbrains.air.commandTitle`, `subagent`, and `skill` instead.
+The adapter also no longer sends the diff statistics `_meta.jetbrains.air.diffStats`.
