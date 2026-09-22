@@ -53,7 +53,6 @@ Patch mode puts the payload at `_meta.jetbrains.air.diffPatch`:
   "oldText": null,
   "newText": "",
   "_meta": {
-    "kind": "update",
     "jetbrains": {
       "air": {
         "version": 1,
@@ -75,10 +74,14 @@ Patch mode puts the payload at `_meta.jetbrains.air.diffPatch`:
 | `text`    | string  | One unified Git patch for the block's file. |
 
 The patch contains file headers and at least one `@@` hunk.
-An added file uses `/dev/null` as the old file header.
-A deleted file uses `/dev/null` as the new file header.
+The headers follow `git diff`.
+The path loses its leading slash, gets the `a/` and `b/` prefixes, and is quoted when git would quote it.
+An added file has a `new file mode 100644` line and uses `/dev/null` as the old file header.
+A deleted file would have a `deleted file mode 100644` line and use `/dev/null` as the new file header.
+The Claude adapter never sends a deleted file, because no Claude file tool deletes a file.
+The patch keeps CR bytes and the `\ No newline at end of file` marker.
 
-In patch mode, `oldText: null` and `newText: ""` are compatibility placeholders.
+In patch mode, `oldText: null` and `newText: ""` are placeholders that satisfy the ACP schema.
 They are not file snapshots or changed fragments.
 The receiver must use `diffPatch.text` as the change payload after it accepts the negotiated extension.
 
@@ -86,20 +89,32 @@ The receiver derives line counts and changed fragments from the patch.
 
 ## Compatibility and fallback
 
-The adapter sends the standard ACP diff when it cannot build a valid completion patch.
-That fallback contains meaningful `oldText` and `newText` values and omits `diffPatch`.
+The adapter sends the patch form only to a client that advertised `diffPatch`.
+When the adapter cannot build an exact patch, it sends the standard ACP diff instead.
+That standard diff contains meaningful `oldText` and `newText` values and omits `diffPatch`.
 
-A receiver accepts the patch only after bilateral negotiation.
-It also validates both versions, the format, and the patch text.
-If validation fails, the receiver ignores `diffPatch` and reads the standard text fields.
+A block that carries `diffPatch` has no usable text fields.
+A receiver that rejects the patch must show the change as unavailable.
+It must not render the placeholders as an empty file.
 Unknown fields do not invalidate a valid payload.
 
 ## Claude behavior
 
 Before an `Edit` or `Write` approval, the adapter reads the target file and applies the tool input in memory.
-It sends the resulting patch when it can identify the requested change safely.
+It sends the resulting patch only when it can predict the written bytes exactly.
 This keeps a 12,000-line file out of the approval payload when the change is small.
+The adapter sends no preview patch in these cases, and the tool call keeps its standard diff:
 
-After the tool runs, the adapter builds one patch from the Claude SDK `structuredPatch` hunks.
-If those hunks cannot form a valid patch, the adapter uses the standard text-fragment mapping.
-A `Write` response can instead supply the original and new content when no structured hunk exists.
+- The file is larger than 1 MiB, is binary, is not valid UTF-8, or contains a CR.
+- The `Edit` file is missing for a non-empty `old_string`, or the `old_string` does not match exactly once.
+- The change leaves the file unchanged.
+
+An `Edit` input holds a snippet, not the file.
+The tool call therefore shows the standard diff of the snippet until a preview or the final patch replaces it.
+A `Write` tool call shows a creation patch of its content.
+
+After the tool runs, the adapter diffs the SDK `originalFile` against the file on disk.
+It does not use the SDK `structuredPatch` hunks for a patch.
+Claude converts leading tabs and CRLF line endings in those hunks, so they do not match the file.
+If the written file is too large, binary, or contains a CR or a byte order mark, the adapter sends the standard diff.
+A created file gets a creation patch.
