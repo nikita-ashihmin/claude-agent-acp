@@ -21,6 +21,7 @@ This tool implements an ACP agent by using the official [Claude Agent SDK](https
 - Structured errors, recovery, and warnings through the opt-in [session failure extension](docs/session-failure-extension.md)
 - Concrete model and effort defaults through the opt-in [recommended config value extension](docs/recommended-config-values-extension.md)
 - Tool permission presentation, editable choices, and durable effects through the [permission extension](docs/permission-extension.md)
+- A compact tool call shape for JetBrains AIR through the [AIR client profile](docs/air-client-profile.md)
 
 Learn more about the [Agent Client Protocol](https://agentclientprotocol.com/).
 

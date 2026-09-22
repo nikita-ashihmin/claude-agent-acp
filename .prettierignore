@@ -5,3 +5,6 @@ dist
 .release-please-manifest.json
 release-please-config.json
 CHANGELOG.md
+
+# Shared verbatim with codex-acp; keep it byte-identical.
+docs/air-client-profile.md
