@@ -1,10 +1,33 @@
 import { ToolCallContent, ToolCallLocation } from "@agentclientprotocol/sdk";
-import { createTwoFilesPatch } from "diff";
-import { readFile } from "node:fs/promises";
+import { structuredPatch } from "diff";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { AIR_DIFF_PATCH_CAPABILITY, withAirMeta } from "./air-extension.js";
 
-interface DiffToolResponseHunk {
+/**
+ * The largest file, in bytes, that the adapter turns into a git patch.
+ *
+ * A larger file, or a larger new text, gets no patch. The tool call then keeps
+ * its standard ACP content. The limit bounds the file read and the line diff
+ * that run while Claude waits for an approval.
+ */
+export const MAX_PATCH_FILE_BYTES = 1024 * 1024;
+
+/** The wall-clock budget, in milliseconds, of one line diff for a patch. */
+const PATCH_DIFF_TIMEOUT_MS = 500;
+
+/** Git reads this many leading bytes to decide that a file is binary. */
+const BINARY_SNIFF_BYTES = 8000;
+
+const NO_NEWLINE_MARKER = "\\ No newline at end of file";
+
+/**
+ * One unified-diff hunk in the `diff` package convention.
+ *
+ * A side with zero lines stores the number of the line after the change as its
+ * start. {@link hunkHeader} converts that start to the git convention.
+ */
+interface PatchHunk {
   oldStart: number;
   oldLines: number;
   newStart: number;
@@ -14,15 +37,19 @@ interface DiffToolResponseHunk {
 
 interface DiffToolResponse {
   filePath?: string;
-  structuredPatch?: DiffToolResponseHunk[];
+  structuredPatch?: PatchHunk[];
   /** FileWriteOutput only (FileEditOutput carries no `type`): whether the
    *  write created the file or overwrote an existing one. */
   type?: "create" | "update";
   /** FileWriteOutput only: the content that was written. */
   content?: string;
-  /** FileWriteOutput only: the pre-write content — null on create, or on an
-   *  update whose previous content was too large to include. */
+  /** The pre-change content. It is null on a Write create, or on a Write
+   *  update whose previous content was too large to include. An Edit that
+   *  creates a file reports an empty string. */
   originalFile?: string | null;
+  /** FileEditOutput only: the text that the Edit replaced. It is empty when
+   *  the Edit created the file. */
+  oldString?: string;
 }
 
 interface EditPreviewInput {
@@ -37,7 +64,20 @@ interface WritePreviewInput {
   content?: unknown;
 }
 
-/** Builds the patch shown before Claude runs an Edit or Write tool. */
+/** The kind of file change that a git patch describes. */
+type FileChange = "create" | "update" | "delete";
+
+/**
+ * Builds the exact patch shown before Claude runs an Edit or Write tool.
+ *
+ * Returns undefined when the adapter cannot predict the file change exactly.
+ * The caller then keeps the standard tool-call content. The adapter declines
+ * a file that is missing for an Edit, too large, binary, or that has CR line
+ * endings. Claude converts the line endings of an edited file, so an in-memory
+ * replacement would not match the bytes that Claude writes. It also declines
+ * an `old_string` that does not match exactly once, because Claude then
+ * normalizes quotes or fails.
+ */
 export async function previewPatchContent(
   toolName: string,
   input: Record<string, unknown>,
@@ -48,68 +88,106 @@ export async function previewPatchContent(
     if (
       typeof edit.file_path !== "string" ||
       typeof edit.old_string !== "string" ||
-      edit.old_string.length === 0 ||
-      typeof edit.new_string !== "string"
+      typeof edit.new_string !== "string" ||
+      edit.old_string === edit.new_string ||
+      !isPatchableText(edit.new_string)
     ) {
-      return [];
+      return undefined;
     }
     const filePath = resolveToolPath(edit.file_path, cwd);
-    const oldText = await readFile(filePath, "utf8").catch(() => undefined);
-    if (oldText === undefined) return [];
+    const oldText = await readPatchSource(filePath);
+    if (oldText === undefined) return undefined;
+    if (edit.old_string.length === 0) {
+      // An empty old_string creates the file, or fills an existing empty file.
+      if (oldText !== null && oldText.length > 0) return undefined;
+      return optionalContent(await filePatchContent(filePath, oldText, edit.new_string));
+    }
+    if (oldText === null) return undefined;
     const occurrences = oldText.split(edit.old_string).length - 1;
-    if (occurrences === 0 || (edit.replace_all !== true && occurrences !== 1)) return [];
+    if (occurrences === 0 || (edit.replace_all !== true && occurrences !== 1)) return undefined;
     const newText =
       edit.replace_all === true
         ? oldText.split(edit.old_string).join(edit.new_string)
         : oldText.replace(edit.old_string, () => edit.new_string as string);
-    return [patchContent(filePath, createGitPatch(filePath, oldText, newText))];
+    return optionalContent(await filePatchContent(filePath, oldText, newText));
   }
 
   if (toolName === "Write") {
     const write = input as WritePreviewInput;
-    if (typeof write.file_path !== "string" || typeof write.content !== "string") return [];
-    const filePath = resolveToolPath(write.file_path, cwd);
-    const oldText = await readFile(filePath, "utf8").catch((error: unknown) => {
-      if (isMissingFileError(error)) return null;
+    if (
+      typeof write.file_path !== "string" ||
+      typeof write.content !== "string" ||
+      !isPatchableText(write.content)
+    ) {
       return undefined;
-    });
-    if (oldText === undefined || oldText === write.content) return [];
-    return [patchContent(filePath, createGitPatch(filePath, oldText, write.content))];
+    }
+    const filePath = resolveToolPath(write.file_path, cwd);
+    const oldText = await readPatchSource(filePath);
+    if (oldText === undefined || oldText === write.content) return undefined;
+    return optionalContent(await filePatchContent(filePath, oldText, write.content));
   }
 
   return undefined;
 }
 
 /**
- * Builds diff ToolUpdate content from the structured toolResponse provided by
- * the PostToolUse hook for diff-producing tools (Edit, Write). Unlike parsing
- * the plain unified diff string, this uses the pre-parsed structuredPatch
- * which supports multiple replacement sites (replaceAll) and always includes
- * context lines for better readability.
+ * Builds the git patch for a finished Edit or Write from the file on disk.
+ *
+ * The Claude SDK `structuredPatch` is display data: Claude converts leading
+ * tabs to spaces and CRLF line endings to LF before it computes the hunks. A
+ * patch built from those hunks does not match the file. This function diffs
+ * `originalFile` against the written file instead. It returns undefined when
+ * it cannot build an exact patch, and the caller then sends the standard diff.
+ * A written file that contains a CR or a byte order mark is declined, because
+ * Claude removed those bytes from `originalFile`.
  */
-export function toolUpdateFromDiffToolResponse(
+export async function patchUpdateFromDiffToolResponse(
   toolResponse: unknown,
-  supportsDiffPatch = false,
-): {
+): Promise<{ content: ToolCallContent[]; locations: ToolCallLocation[] } | undefined> {
+  if (!toolResponse || typeof toolResponse !== "object") return undefined;
+  const response = toolResponse as DiffToolResponse;
+  if (typeof response.filePath !== "string") return undefined;
+  // An Edit with an empty old_string reports "" as the original of a created
+  // file. Claude cannot tell that from an existing empty file, so both get the
+  // creation header.
+  const creates =
+    response.type === "create" || (response.oldString === "" && response.originalFile === "");
+  const oldText = creates
+    ? null
+    : typeof response.originalFile === "string"
+      ? response.originalFile
+      : undefined;
+  if (oldText === undefined) return undefined;
+  const newText = await readPatchSource(response.filePath);
+  if (typeof newText !== "string" || newText.startsWith("\uFEFF")) return undefined;
+  if (response.type === "create" && newText !== response.content) return undefined;
+  const hunks = await diffHunks(oldText, newText);
+  if (!hunks || hunks.length === 0) return undefined;
+  return {
+    content: [
+      patchContent(
+        response.filePath,
+        gitPatchText(response.filePath, oldText === null ? "create" : "update", hunks),
+      ),
+    ],
+    locations: hunks.map(({ newStart }) => ({ path: response.filePath!, line: newStart })),
+  };
+}
+
+/**
+ * Builds standard ACP diff content from the structured toolResponse provided
+ * by the PostToolUse hook for diff-producing tools (Edit, Write). Unlike
+ * parsing the plain unified diff string, this uses the pre-parsed
+ * structuredPatch which supports multiple replacement sites (replaceAll) and
+ * always includes context lines for better readability.
+ */
+export function toolUpdateFromDiffToolResponse(toolResponse: unknown): {
   content?: ToolCallContent[];
   locations?: ToolCallLocation[];
 } {
   if (!toolResponse || typeof toolResponse !== "object") return {};
   const response = toolResponse as DiffToolResponse;
   if (!response.filePath || !Array.isArray(response.structuredPatch)) return {};
-
-  if (supportsDiffPatch && response.structuredPatch.length > 0) {
-    const text = structuredGitPatch(response.filePath, response.structuredPatch, response.type);
-    if (text) {
-      return {
-        content: [patchContent(response.filePath, text)],
-        locations: response.structuredPatch.map(({ newStart }) => ({
-          path: response.filePath!,
-          line: newStart,
-        })),
-      };
-    }
-  }
 
   const content: ToolCallContent[] = [];
   const locations: ToolCallLocation[] = [];
@@ -121,7 +199,7 @@ export function toolUpdateFromDiffToolResponse(
         oldText.push(line.slice(1));
       } else if (line.startsWith("+")) {
         newText.push(line.slice(1));
-      } else if (line === "\\ No newline at end of file") {
+      } else if (line === NO_NEWLINE_MARKER) {
         continue;
       } else {
         oldText.push(line.slice(1));
@@ -147,34 +225,25 @@ export function toolUpdateFromDiffToolResponse(
   // of a large existing file would render as creating it. Emit a truthful
   // replacement instead. Gated on `type` so Edit (whose output carries no
   // `type` and whose optimistic old/new diff is already truthful) keeps the
-  // empty-return behavior.
-  if (
-    content.length === 0 &&
-    (response.type === "update" || (supportsDiffPatch && response.type === "create")) &&
-    typeof response.content === "string"
-  ) {
+  // empty-return behavior. A `create` needs nothing: the tool_use-time
+  // content already shows the created file.
+  if (content.length === 0 && response.type === "update" && typeof response.content === "string") {
     locations.push({ path: response.filePath });
     content.push(
-      supportsDiffPatch && (response.type === "create" || typeof response.originalFile === "string")
-        ? patchContentFromTexts(
-            response.filePath,
-            response.type === "create" ? null : response.originalFile!,
-            response.content,
-          )
-        : typeof response.originalFile === "string"
-          ? {
-              type: "diff",
-              path: response.filePath,
-              oldText: response.originalFile,
-              newText: response.content,
-            }
-          : {
-              type: "content",
-              content: {
-                type: "text",
-                text: `Updated \`${response.filePath}\` (previous content too large to diff)`,
-              },
+      typeof response.originalFile === "string"
+        ? {
+            type: "diff",
+            path: response.filePath,
+            oldText: response.originalFile,
+            newText: response.content,
+          }
+        : {
+            type: "content",
+            content: {
+              type: "text",
+              text: `Updated \`${response.filePath}\` (previous content too large to diff)`,
             },
+          },
     );
   }
 
@@ -184,66 +253,191 @@ export function toolUpdateFromDiffToolResponse(
   return result;
 }
 
-export function patchContentFromTexts(
+/**
+ * The patch content for a Write that creates `filePath` with `content`.
+ *
+ * Returns undefined when `content` is empty, too large, binary, or contains a
+ * CR. Claude converts the line endings of a written file, so such a patch
+ * would not be exact.
+ */
+export function creationPatchContent(
   filePath: string,
-  oldText: string | null,
-  newText: string | null,
-): ToolCallContent {
-  const oldLines = splitLines(oldText);
-  const newLines = splitLines(newText);
-  const oldRange = oldLines.length === 0 ? "0,0" : `1,${oldLines.length}`;
-  const newRange = newLines.length === 0 ? "0,0" : `1,${newLines.length}`;
-  const text = [
-    `diff --git a/${filePath} b/${filePath}`,
-    `--- ${oldText === null ? "/dev/null" : `a/${filePath}`}`,
-    `+++ ${newText === null ? "/dev/null" : `b/${filePath}`}`,
-    `@@ -${oldRange} +${newRange} @@`,
-    ...oldLines.map((line) => `-${line}`),
-    ...newLines.map((line) => `+${line}`),
-    "",
-  ].join("\n");
-  return patchContent(filePath, text);
+  content: string,
+): ToolCallContent | undefined {
+  if (!isPatchableText(content)) return undefined;
+  const hunk = wholeFileHunk(content);
+  return hunk ? patchContent(filePath, gitPatchText(filePath, "create", [hunk])) : undefined;
 }
 
-function structuredGitPatch(
-  filePath: string,
-  hunks: DiffToolResponseHunk[],
-  type?: "create" | "update",
-): string | undefined {
-  if (hunks.some((hunk) => !validHunk(hunk))) return undefined;
+/**
+ * The text of one git patch for `filePath`.
+ *
+ * The headers follow `git diff`: the path loses its leading slash, gets the
+ * `a/` and `b/` prefixes, and is quoted when git would quote it. A created or
+ * deleted file gets its mode line and a `/dev/null` side.
+ */
+export function gitPatchText(filePath: string, change: FileChange, hunks: PatchHunk[]): string {
   return [
-    `diff --git a/${filePath} b/${filePath}`,
-    `--- ${type === "create" ? "/dev/null" : `a/${filePath}`}`,
-    `+++ b/${filePath}`,
-    ...hunks.flatMap(({ oldStart, oldLines, newStart, newLines, lines }) => [
-      `@@ -${range(oldStart, oldLines)} +${range(newStart, newLines)} @@`,
-      ...lines,
-    ]),
+    ...gitPatchHeader(filePath, change),
+    ...hunks.flatMap((hunk) => [hunkHeader(hunk), ...hunk.lines]),
     "",
   ].join("\n");
 }
 
-function validHunk(hunk: DiffToolResponseHunk): boolean {
-  return (
-    [hunk.oldStart, hunk.oldLines, hunk.newStart, hunk.newLines].every(Number.isSafeInteger) &&
-    hunk.oldStart >= 0 &&
-    hunk.oldLines >= 0 &&
-    hunk.newStart >= 0 &&
-    hunk.newLines >= 0 &&
-    hunk.lines.every(
-      (line) =>
-        line.startsWith(" ") ||
-        line.startsWith("+") ||
-        line.startsWith("-") ||
-        line === "\\ No newline at end of file",
-    )
-  );
+function gitPatchHeader(filePath: string, change: FileChange): string[] {
+  // git drops one leading slash of an absolute path; a Windows path gets
+  // forward slashes so the header names the same file on every platform.
+  const name = filePath.replaceAll("\\", "/").replace(/^\/+/u, "");
+  const oldName = quoteGitPath("a/", name);
+  const newName = quoteGitPath("b/", name);
+  // git ends a ---/+++ name that contains a space with a tab, for GNU patch.
+  const tab = name.includes(" ") ? "\t" : "";
+  return [
+    `diff --git ${oldName} ${newName}`,
+    ...(change === "create" ? ["new file mode 100644"] : []),
+    ...(change === "delete" ? ["deleted file mode 100644"] : []),
+    `--- ${change === "create" ? "/dev/null" : `${oldName}${tab}`}`,
+    `+++ ${change === "delete" ? "/dev/null" : `${newName}${tab}`}`,
+  ];
 }
 
-function range(start: number, count: number): string {
+const GIT_PATH_ESCAPES: Record<number, string> = {
+  0x07: "a",
+  0x08: "b",
+  0x09: "t",
+  0x0a: "n",
+  0x0b: "v",
+  0x0c: "f",
+  0x0d: "r",
+  0x22: '"',
+  0x5c: "\\",
+};
+
+/**
+ * Quotes `prefix + name` like git with the default `core.quotePath`.
+ *
+ * A double quote, a backslash, a control byte, or a non-ASCII byte makes git
+ * put the whole name in double quotes. git then writes a C escape or a
+ * three-digit octal escape for each such UTF-8 byte.
+ */
+function quoteGitPath(prefix: string, name: string): string {
+  const full = `${prefix}${name}`;
+  let quoted = "";
+  let needsQuotes = false;
+  for (const byte of Buffer.from(full, "utf8")) {
+    const escape = GIT_PATH_ESCAPES[byte];
+    if (escape !== undefined) {
+      quoted += `\\${escape}`;
+      needsQuotes = true;
+    } else if (byte < 0x20 || byte >= 0x7f) {
+      quoted += `\\${byte.toString(8).padStart(3, "0")}`;
+      needsQuotes = true;
+    } else {
+      quoted += String.fromCharCode(byte);
+    }
+  }
+  return needsQuotes ? `"${quoted}"` : full;
+}
+
+function hunkHeader({ oldStart, oldLines, newStart, newLines }: PatchHunk): string {
+  return `@@ -${hunkRange(oldStart, oldLines)} +${hunkRange(newStart, newLines)} @@`;
+}
+
+/** A git hunk range. A side with zero lines names the line before the change. */
+function hunkRange(start: number, count: number): string {
+  if (count === 0) return `${Math.max(0, start - 1)},0`;
   return count === 1 ? String(start) : `${start},${count}`;
 }
 
+/** The hunk that adds every line of `text` to an empty file. */
+function wholeFileHunk(text: string): PatchHunk | undefined {
+  if (text.length === 0) return undefined;
+  const terminated = text.endsWith("\n");
+  const lines = (terminated ? text.slice(0, -1) : text).split("\n");
+  return {
+    oldStart: 1,
+    oldLines: 0,
+    newStart: 1,
+    newLines: lines.length,
+    lines: [...lines.map((line) => `+${line}`), ...(terminated ? [] : [NO_NEWLINE_MARKER])],
+  };
+}
+
+/**
+ * The line-diff hunks between two texts, computed without blocking the event
+ * loop. Returns undefined when the diff runs out of its time budget.
+ */
+async function diffHunks(
+  oldText: string | null,
+  newText: string,
+): Promise<PatchHunk[] | undefined> {
+  if (oldText === null) {
+    const hunk = wholeFileHunk(newText);
+    return hunk ? [hunk] : [];
+  }
+  return new Promise((resolve) => {
+    structuredPatch("", "", oldText, newText, "", "", {
+      context: 3,
+      timeout: PATCH_DIFF_TIMEOUT_MS,
+      callback: (patch) => resolve(patch?.hunks),
+    });
+  });
+}
+
+async function filePatchContent(
+  filePath: string,
+  oldText: string | null,
+  newText: string,
+): Promise<ToolCallContent | undefined> {
+  const hunks = await diffHunks(oldText, newText);
+  if (!hunks || hunks.length === 0) return undefined;
+  return patchContent(
+    filePath,
+    gitPatchText(filePath, oldText === null ? "create" : "update", hunks),
+  );
+}
+
+/**
+ * Reads a file as patch input.
+ *
+ * Returns null when the file does not exist. Returns undefined when the file
+ * cannot be read, is not a regular file, is larger than
+ * {@link MAX_PATCH_FILE_BYTES}, is binary, is not valid UTF-8, or contains a
+ * CR.
+ */
+async function readPatchSource(filePath: string): Promise<string | null | undefined> {
+  try {
+    const stats = await stat(filePath);
+    if (!stats.isFile() || stats.size > MAX_PATCH_FILE_BYTES) return undefined;
+    const bytes = await readFile(filePath);
+    if (bytes.length > MAX_PATCH_FILE_BYTES) return undefined;
+    if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return undefined;
+    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+    return text.includes("\r") ? undefined : text;
+  } catch (error) {
+    return isMissingFileError(error) ? null : undefined;
+  }
+}
+
+/** Whether a tool input text can be the new side of an exact patch. */
+function isPatchableText(text: string): boolean {
+  return (
+    Buffer.byteLength(text, "utf8") <= MAX_PATCH_FILE_BYTES &&
+    !text.includes("\0") &&
+    !text.includes("\r")
+  );
+}
+
+function optionalContent(content: ToolCallContent | undefined): ToolCallContent[] | undefined {
+  return content ? [content] : undefined;
+}
+
+/**
+ * A diff block in the AIR patch form.
+ *
+ * `oldText: null` and `newText: ""` only satisfy the ACP schema. The adapter
+ * sends this form only to a client that advertised `diffPatch`.
+ */
 function patchContent(filePath: string, text: string): ToolCallContent {
   return {
     type: "diff",
@@ -258,29 +452,10 @@ function patchContent(filePath: string, text: string): ToolCallContent {
   };
 }
 
-function splitLines(text: string | null): string[] {
-  if (!text) return [];
-  return text.replace(/\r\n/gu, "\n").replace(/\r/gu, "\n").replace(/\n$/u, "").split("\n");
-}
-
 function resolveToolPath(filePath: string, cwd?: string): string {
   return path.isAbsolute(filePath) ? filePath : path.resolve(cwd ?? process.cwd(), filePath);
 }
 
 function isMissingFileError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
-function createGitPatch(filePath: string, oldText: string | null, newText: string | null): string {
-  const patchPath = filePath.replaceAll("\\", "/").replace(/^\/+/, "");
-  const oldPath = `a/${patchPath}`;
-  const newPath = `b/${patchPath}`;
-  const unified = createTwoFilesPatch(oldPath, newPath, oldText ?? "", newText ?? "", "", "", {
-    context: 3,
-  });
-  const body = unified
-    .replace(/^={3,}\n/u, "")
-    .replace(/^--- [^\n]*/u, `--- ${oldText === null ? "/dev/null" : oldPath}`)
-    .replace(/^\+\+\+ [^\n]*/mu, `+++ ${newText === null ? "/dev/null" : newPath}`);
-  return `diff --git ${oldPath} ${newPath}\n${body}`;
 }

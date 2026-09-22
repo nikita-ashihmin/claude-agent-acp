@@ -231,7 +231,11 @@ import {
   toolUpdateFromToolResult,
   unregisterHookCallback,
 } from "./tools.js";
-import { previewPatchContent, toolUpdateFromDiffToolResponse } from "./diff.js";
+import {
+  patchUpdateFromDiffToolResponse,
+  previewPatchContent,
+  toolUpdateFromDiffToolResponse,
+} from "./diff.js";
 import { nodeToWebReadable, nodeToWebWritable, Pushable, unreachable } from "./utils.js";
 import {
   acceptedPlanToolResult,
@@ -9663,10 +9667,14 @@ export function toAcpNotifications(
                   // `oldText: null`) shows "creation" semantics regardless of
                   // whether the file existed; the structuredPatch from the
                   // hook lets us emit the real diff for `type: "update"`. The
-                  // helper returns `{}` if the response shape isn't usable.
+                  // helper returns `{}` if the response shape isn't usable. A
+                  // negotiated client gets an exact git patch built from the
+                  // written file, or the standard diff when none can be built.
                   const editDiff =
                     toolName === "Edit" || toolName === "Write"
-                      ? toolUpdateFromDiffToolResponse(toolResponse, supportsDiffPatch)
+                      ? ((supportsDiffPatch
+                          ? await patchUpdateFromDiffToolResponse(toolResponse)
+                          : undefined) ?? toolUpdateFromDiffToolResponse(toolResponse))
                       : {};
                   const update: SessionNotification["update"] = {
                     _meta: {

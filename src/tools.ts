@@ -63,7 +63,7 @@ import {
   BetaWebSearchToolResultBlockParam,
 } from "@anthropic-ai/sdk/resources/beta.mjs";
 import path from "node:path";
-import { patchContentFromTexts } from "./diff.js";
+import { creationPatchContent } from "./diff.js";
 
 /**
  * Union of all possible content types that can appear in tool results from the Anthropic SDK.
@@ -209,15 +209,17 @@ export function toolInfoFromToolUse(
       const input = toolUse.input as FileWriteInput | undefined;
       let content: ToolCallContent[] = [];
       if (input && input.file_path) {
+        // A negotiated client gets the creation patch that the PostToolUse
+        // hook would send for a new file, so that update can be skipped.
         content = [
-          supportsDiffPatch
-            ? patchContentFromTexts(input.file_path, null, input.content)
-            : {
-                type: "diff",
-                path: input.file_path,
-                oldText: null,
-                newText: input.content,
-              },
+          (supportsDiffPatch && typeof input.content === "string"
+            ? creationPatchContent(input.file_path, input.content)
+            : undefined) ?? {
+            type: "diff",
+            path: input.file_path,
+            oldText: null,
+            newText: input.content,
+          },
         ];
       } else if (input && input.content) {
         content = [
@@ -240,19 +242,16 @@ export function toolInfoFromToolUse(
       const input = toolUse.input as FileEditInput | undefined;
       let content: ToolCallContent[] = [];
       if (input && input.file_path && (input.old_string || input.new_string)) {
+        // The standard diff, also for a client that negotiated patches: the
+        // input holds a snippet, not the file, so a patch would need line
+        // numbers that the adapter does not know here.
         content = [
-          supportsDiffPatch
-            ? patchContentFromTexts(
-                input.file_path,
-                input.old_string || null,
-                input.new_string ?? "",
-              )
-            : {
-                type: "diff",
-                path: input.file_path,
-                oldText: input.old_string || null,
-                newText: input.new_string ?? "",
-              },
+          {
+            type: "diff",
+            path: input.file_path,
+            oldText: input.old_string || null,
+            newText: input.new_string ?? "",
+          },
         ];
       }
       const displayPath = input?.file_path ? toDisplayPath(input.file_path, cwd) : undefined;
