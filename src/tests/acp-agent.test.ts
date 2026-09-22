@@ -4801,7 +4801,7 @@ describe("subagent permission attribution (issue #851)", () => {
     expect(map.get("agent-43")?.parentToolUseId).toBe("toolu_parent_2");
   });
 
-  it("keeps legacy Agent lifecycle and flattened child output without capability negotiation", async () => {
+  it("keeps legacy Agent lifecycle and child text internal without capability negotiation", async () => {
     const updates: AcpSessionNotification[] = [];
     const agent = new ClaudeAcpAgent(
       {
@@ -4865,9 +4865,10 @@ describe("subagent permission attribution (issue #851)", () => {
           update.sessionUpdate === "subagent_state_update",
       ),
     ).toBe(false);
+    // Nested text stays internal without negotiation, streamed or consolidated.
     expect(
       updates.some(({ update }) => JSON.stringify(update).includes("hidden child output")),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       updates.some(
         ({ update }) =>
@@ -11164,6 +11165,30 @@ describe("assembled assistant text fallback", () => {
     }
     expect(messageChunkTexts(updates)).toContain("nested report");
     expect(thoughtChunkTexts(updates)).toContain("checking");
+  });
+
+  it("does not repeat streamed subagent text in the consolidated message", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { _meta: { "subagent-transcript": true } };
+    const delta = (text: string) => ({
+      type: "stream_event",
+      parent_tool_use_id: "tool_use_1",
+      uuid: randomUUID(),
+      session_id: "test-session",
+      event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
+    });
+    injectSession(agent, [
+      delta("nested "),
+      delta("report"),
+      assistantMessage("msg-subagent", [{ type: "text", text: "nested report!" }], "tool_use_1"),
+      result(),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "hi" }] });
+
+    // The consolidated message adds only the tail that did not stream.
+    expect(messageChunkTexts(updates)).toEqual(["nested ", "report", "!"]);
   });
 
   it("forwards distinct blocks that a gateway splits across same-id messages", async () => {

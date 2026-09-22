@@ -1264,6 +1264,56 @@ type ProviderConfig = {
 
 export type { ToolUpdateMeta } from "./tool-calls/renderer.js";
 
+/** Text or thinking that streamed live as deltas, accumulated per block. */
+type StreamedBlock = { index: number; type: "text" | "thinking"; text: string };
+
+/**
+ * The blocks of a consolidated assistant message without the text that
+ * already streamed as deltas.
+ *
+ * Each assembled text/thinking block is diffed against the streamed blocks in
+ * document order: nothing is left if it streamed in full (the common case),
+ * the whole block if it never streamed (a non-streaming gateway), and just the
+ * tail if the stream was cut short mid-block. Matching on content rather than
+ * the message id keeps the dedupe robust for gateways without a stable id.
+ * Tool-use and other blocks pass through untouched.
+ */
+function unstreamedRemainder<Block extends { type: string }>(
+  blocks: Block[],
+  streamedBlocks: StreamedBlock[],
+): Block[] {
+  const kept: Block[] = [];
+  let streamPos = 0;
+  for (const item of blocks) {
+    if (item.type !== "text" && item.type !== "thinking") {
+      kept.push(item);
+      continue;
+    }
+    const block = item as Block & { text?: string; thinking?: string };
+    const full = (item.type === "text" ? block.text : block.thinking) ?? "";
+    // Empty assembled blocks carry nothing: drop them.
+    if (full.length === 0) continue;
+    // A streamed block of the same type whose text is a prefix of this one
+    // was already delivered, at least partly. A non-empty streamed text is
+    // required so an empty or aborted streamed block does not swallow it.
+    const streamed = streamedBlocks[streamPos];
+    if (
+      streamed &&
+      streamed.type === item.type &&
+      streamed.text.length > 0 &&
+      full.startsWith(streamed.text)
+    ) {
+      streamPos++;
+      const remainder = full.slice(streamed.text.length);
+      if (remainder.length === 0) continue;
+      kept.push({ ...item, [item.type === "text" ? "text" : "thinking"]: remainder });
+      continue;
+    }
+    kept.push(item);
+  }
+  return kept;
+}
+
 /** Attributes a report to the Agent/Task tool call of the subagent that made it. */
 function stampParentToolUseId(update: SessionNotification["update"], parentToolUseId: string) {
   update._meta = {
@@ -3159,7 +3209,24 @@ export class ClaudeAcpAgent {
     // on content rather than the Anthropic message id makes dedupe robust to
     // gateways that don't carry a stable/matching id across the stream and the
     // consolidated message. Reset after each consolidated message consumes it.
-    const streamedBlocks: { index: number; type: "text" | "thinking"; text: string }[] = [];
+    //
+    // Keyed by the parent tool use of the stream ("" for the top level), so a
+    // subagent message gets the same remainder diff as a top-level message.
+    const streamedBlocksByParent = new Map<string, StreamedBlock[]>();
+    const streamedBlocksOf = (parentToolUseId: string | null): StreamedBlock[] => {
+      const key = parentToolUseId ?? "";
+      let blocks = streamedBlocksByParent.get(key);
+      if (!blocks) streamedBlocksByParent.set(key, (blocks = []));
+      return blocks;
+    };
+    // A client gets subagent text when it negotiated native subagent sessions,
+    // the transcript extension, or the `forwardSubagentText` session option.
+    // Every other client gets neither the streamed nor the consolidated text:
+    // nested text stays internal to the Agent tool call.
+    const forwardsSubagentText = () =>
+      session.forwardSubagentText ||
+      supportsSubagentTranscript(this.clientCapabilities) ||
+      clientSupportsSubagents(this.clientCapabilities);
     // Tool-use blocks start streaming before their JSON input. Keep the
     // partial input per parent message and block index so completed top-level
     // fields can refine the pending tool call while it streams. Entries are
@@ -3358,12 +3425,12 @@ export class ClaudeAcpAgent {
       lastAssistantWasUsageLimit = false;
       lastAssistantFailureTitle = undefined;
       lastRefusalExplanation = null;
-      // Do NOT reset currentStreamMessageId or streamedBlocks here. Turn
+      // Do NOT reset currentStreamMessageId or the streamed blocks here. Turn
       // activation can fire mid-message (the replayed user echo with
       // --replay-user-messages lands between a message's blocks); clearing the
       // streamed-content record on activation would drop the blocks that
       // streamed before the echo, so the consolidated assistant message would
-      // re-emit them as duplicates. streamedBlocks is bounded instead by being
+      // re-emit them as duplicates. The streamed blocks are bounded instead by being
       // cleared when each consolidated message consumes it. #785 stopped
       // resetting the streamed-content tracking here but left this line.
       stopReason = "end_turn";
@@ -5370,21 +5437,16 @@ export class ClaudeAcpAgent {
               // the top-level record. Fires once, before any of this message's
               // blocks, so it doesn't disturb the mid-message turn-activation
               // path the way resetting on turn activation would.
-              if (message.parent_tool_use_id === null) {
-                streamedBlocks.length = 0;
-              }
+              streamedBlocksOf(message.parent_tool_use_id).length = 0;
             }
             // Accumulate the text/thinking actually streamed live, so the
             // `assistant` case below can diff its assembled blocks against what
             // already reached the client as chunks and forward only the
-            // remainder. Gated on `parent_tool_use_id === null` so a subagent
-            // stream can't attribute its content to the top-level message.
+            // remainder. Each stream (top level or one subagent) keeps its own
+            // record, so a subagent cannot attribute content to another stream.
             // Contiguous deltas of the same block (same index and type) extend
             // the current entry; anything else opens a new one.
-            if (
-              message.parent_tool_use_id === null &&
-              message.event.type === "content_block_delta"
-            ) {
+            if (message.event.type === "content_block_delta") {
               const delta = message.event.delta;
               const chunk =
                 delta.type === "text_delta"
@@ -5399,6 +5461,7 @@ export class ClaudeAcpAgent {
               // re-emitting the next block as a duplicate.
               if (chunk?.text) {
                 const index = message.event.index;
+                const streamedBlocks = streamedBlocksOf(message.parent_tool_use_id);
                 const last = streamedBlocks[streamedBlocks.length - 1];
                 if (last && last.index === index && last.type === chunk.type) {
                   last.text += chunk.text;
@@ -5481,6 +5544,16 @@ export class ClaudeAcpAgent {
                 streamedToolInputs,
               },
             )) {
+              // Nested text stays internal for a client that does not get it,
+              // like the consolidated subagent message below.
+              if (
+                message.parent_tool_use_id !== null &&
+                !forwardsSubagentText() &&
+                (notification.update.sessionUpdate === "agent_message_chunk" ||
+                  notification.update.sessionUpdate === "agent_thought_chunk")
+              ) {
+                continue;
+              }
               // sendUpdate records delivery; a subagent stream's chunks carry
               // the stamped parentToolUseId meta and are excluded there.
               await sendUpdate(notification);
@@ -5745,77 +5818,25 @@ export class ClaudeAcpAgent {
             }
 
             let content: typeof message.message.content;
-            if (message.type === "assistant" && message.parent_tool_use_id === null) {
-              // Top-level assistant message: each text/thinking block may have
-              // already been streamed live as deltas. Diff each against what
-              // streamed (`streamedBlocks`, in document order) and forward only
-              // the un-streamed remainder — nothing if it streamed in full (the
-              // common case), the whole block if it never streamed (a
-              // non-streaming gateway), or just the tail if the stream was cut
-              // short mid-block. `streamPos` walks the streamed blocks in step
-              // with the assembled text/thinking blocks; tool_use and other
-              // blocks pass through untouched (their own `toolUseCache` collapses
-              // the streamed/assembled pair) without advancing it.
-              const blocks = message.message.content;
-              const kept: typeof blocks = [];
-              let streamPos = 0;
-              for (const item of blocks) {
-                if (item.type !== "text" && item.type !== "thinking") {
-                  kept.push(item);
-                  continue;
-                }
-                const full = item.type === "text" ? item.text : item.thinking;
-                // Empty assembled blocks carry nothing (some gateways emit an
-                // empty `thinking` block before the real text) — drop them.
-                if (full.length === 0) {
-                  continue;
-                }
-                // A streamed block of the same type whose accumulated text is a
-                // prefix of this one was already (at least partly) delivered as
-                // chunks; consume it and forward only what's left. A non-empty
-                // streamed text is required so an empty/aborted streamed block
-                // doesn't swallow the assembled copy.
-                const streamed = streamedBlocks[streamPos];
-                if (
-                  streamed &&
-                  streamed.type === item.type &&
-                  streamed.text.length > 0 &&
-                  full.startsWith(streamed.text)
-                ) {
-                  streamPos++;
-                  const remainder = full.slice(streamed.text.length);
-                  if (remainder.length === 0) {
-                    continue;
-                  }
-                  // Overwrite in place with just the un-streamed tail (the
-                  // assembled message isn't read again after this) so the block
-                  // keeps its exact SDK type.
-                  if (item.type === "text") {
-                    item.text = remainder;
-                  } else {
-                    item.thinking = remainder;
-                  }
-                  kept.push(item);
-                  continue;
-                }
-                // Not matched: never streamed (or the stream diverged from the
-                // assembled text) — forward the block in full.
-                kept.push(item);
-              }
-              content = kept;
-              // Consumed: reset so the next message's blocks accumulate fresh and
-              // the record stays bounded to the in-flight message.
-              streamedBlocks.length = 0;
-            } else if (
+            if (
               message.type === "assistant" &&
-              !(session.forwardSubagentText || supportsSubagentTranscript(this.clientCapabilities))
+              (message.parent_tool_use_id === null || forwardsSubagentText())
             ) {
-              // Legacy clients keep the flattened tool-call representation,
-              // but nested text/thinking stays internal unless explicitly
-              // requested through the historical transcript extension.
+              // Each text/thinking block may have streamed live as deltas
+              // already, for the top level and for a subagent. Forward only
+              // the un-streamed remainder (see `unstreamedRemainder`), and
+              // reset the record of the stream so the next message starts
+              // fresh.
+              const streamed = streamedBlocksOf(message.parent_tool_use_id);
+              content = unstreamedRemainder(message.message.content, streamed);
+              streamed.length = 0;
+            } else if (message.type === "assistant") {
+              // Nested text/thinking stays internal for a client that does
+              // not get subagent text.
               content = message.message.content.filter(
                 (item) => item.type !== "text" && item.type !== "thinking",
               );
+              streamedBlocksOf(message.parent_tool_use_id).length = 0;
             } else {
               content = message.message.content;
             }
