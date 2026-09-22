@@ -9,6 +9,7 @@ This tool implements an ACP agent by using the official [Claude Agent SDK](https
 - Context @-mentions
 - Images
 - Tool calls (with permission requests)
+- Compact file changes through the negotiated [AIR diff patch extension](docs/diff-patch-extension.md)
 - Following
 - Edit review
 - TODO lists
