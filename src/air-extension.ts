@@ -4,7 +4,7 @@ export const AIR_SESSION_FAILURE_CAPABILITY = "sessionFailure";
 export const AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY = "recommendedValue";
 export const AIR_DIFF_PATCH_CAPABILITY = "diffPatch";
 
-/** The `_meta.jetbrains.air` keys that the AIR client profile defines. */
+/** The `_meta.jetbrains.air` keys that the ACP tool call contract defines. */
 export const AIR_COMMAND_TITLE_KEY = "commandTitle";
 export const AIR_SUBAGENT_KEY = "subagent";
 export const AIR_SKILL_KEY = "skill";

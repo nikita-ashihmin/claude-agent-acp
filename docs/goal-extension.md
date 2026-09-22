@@ -1,6 +1,6 @@
 # Goal extension
 
-This document defines an experimental ACP extension implemented by `claude-agent-acp`. It is shaped like a possible future first-class ACP API, and the payload has no provider-specific fields. The payload travels under `_meta.jetbrains.air.goal`, as the [AIR client profile](air-client-profile.md) defines.
+This document defines an experimental ACP extension implemented by `claude-agent-acp`. It is shaped like a possible future first-class ACP API, and the payload has no provider-specific fields. The payload travels under `_meta.jetbrains.air.goal`, as the [ACP tool call contract](acp-tool-call-contract.md) defines.
 
 ## Capability negotiation
 

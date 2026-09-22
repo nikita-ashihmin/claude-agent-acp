@@ -15,7 +15,7 @@ export interface ContextCompactionMetadata {
 
 /**
  * The `_meta` of a context compaction report:
- * `_meta.jetbrains.air.contextCompaction`, as the AIR client profile defines.
+ * `_meta.jetbrains.air.contextCompaction`, as the ACP tool call contract defines.
  * The standard toolCallId and status fields own lifecycle identity and phase;
  * this extension carries only compaction-specific facts.
  */

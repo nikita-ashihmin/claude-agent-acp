@@ -1295,7 +1295,7 @@ export type ToolUpdateMeta = {
        harness collected any. Only ever present alongside nonExecutionKind. */
     userFeedback?: string;
   };
-  /* The client flags of the AIR client profile (`docs/air-client-profile.md`). */
+  /* The AIR client flags of the ACP tool call contract (`docs/acp-tool-call-contract.md`). */
   jetbrains?: {
     air?: {
       version?: number;
