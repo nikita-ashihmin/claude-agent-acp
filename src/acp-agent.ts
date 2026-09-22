@@ -9918,10 +9918,16 @@ export function toAcpNotifications(
             toolCallId: chunk.tool_use_id,
             sessionUpdate: "tool_call_update",
             status: "is_error" in chunk && chunk.is_error ? "failed" : "completed",
-            // The terminal output already carried the exact bytes in the preceding
-            // update. Repeating them as rawOutput wastes bandwidth and lets a
-            // client accidentally render the same output twice.
-            ...(terminalOutput
+            // The output travels once. The terminal output or the content
+            // already carries it, so rawOutput would repeat it and let a client
+            // render it twice. The content drops only model-directed text
+            // (system reminders, the Agent trailer), which the client does not
+            // show. rawOutput stays for a result without content, for example
+            // the confirmation text of an Edit or an ExitPlanMode plan.
+            // ExitPlanMode keeps rawOutput: clients read the unfenced
+            // explanation of a rejected plan there.
+            ...(terminalOutput ||
+            (toolUpdate.content !== undefined && toolUse.name !== "ExitPlanMode")
               ? {}
               : { rawOutput: exitPlanModeRawOutput(toolUse.name, chunk.content) }),
             ...toolUpdate,

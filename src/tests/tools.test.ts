@@ -57,11 +57,11 @@ describe("PostToolUse callback ownership", () => {
   });
 });
 
-describe("rawOutput in tool call updates", () => {
+describe("tool output in tool call updates", () => {
   const mockClient = {} as AcpClient;
   const mockLogger: Logger = { log: () => {}, error: () => {} };
 
-  it("should include rawOutput with string content for tool_result", () => {
+  it("sends Bash output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_123: {
         type: "tool_use",
@@ -92,11 +92,12 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_123",
       status: "completed",
-      rawOutput: "hello\n",
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
-  it("should include rawOutput with array content for tool_result", () => {
+  it("sends Read output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_456: {
         type: "tool_use",
@@ -128,11 +129,12 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_456",
       status: "completed",
-      rawOutput: [{ type: "text", text: "Line 1\nLine 2\nLine 3" }],
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
-  it("should include rawOutput for mcp_tool_result with string content", () => {
+  it("sends MCP string output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_789: {
         type: "tool_use",
@@ -164,11 +166,12 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_789",
       status: "completed",
-      rawOutput: '{"result": "success", "data": [1, 2, 3]}',
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
-  it("should include rawOutput for mcp_tool_result with array content", () => {
+  it("sends MCP array output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_abc: {
         type: "tool_use",
@@ -205,11 +208,12 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_abc",
       status: "completed",
-      rawOutput: arrayContent,
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
-  it("should include rawOutput for web_search_tool_result", () => {
+  it("sends web search output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_web: {
         type: "tool_use",
@@ -250,11 +254,12 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_web",
       status: "completed",
-      rawOutput: searchResults,
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
-  it("should include rawOutput for bash_code_execution_tool_result", () => {
+  it("sends code execution output once, in content, without rawOutput", () => {
     const toolUseCache: ToolUseCache = {
       toolu_bash: {
         type: "tool_use",
@@ -293,8 +298,9 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_bash",
       status: "completed",
-      rawOutput: bashResult,
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
   it("should set status to failed when is_error is true", () => {
@@ -328,8 +334,42 @@ describe("rawOutput in tool call updates", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_err",
       status: "failed",
-      rawOutput: "command not found: invalid_command",
+      content: expect.any(Array),
     });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
+  });
+
+  it("keeps rawOutput for a result without content", () => {
+    const toolUseCache: ToolUseCache = {
+      toolu_edit: {
+        type: "tool_use",
+        id: "toolu_edit",
+        name: "Edit",
+        input: { file_path: "/a.ts", old_string: "a", new_string: "b" },
+      },
+    };
+
+    const notifications = toAcpNotifications(
+      [
+        {
+          type: "tool_result",
+          tool_use_id: "toolu_edit",
+          content: "The file /a.ts has been updated successfully.",
+          is_error: false,
+        },
+      ],
+      "assistant",
+      "test-session",
+      toolUseCache,
+      mockClient,
+      mockLogger,
+    );
+
+    expect(notifications[0].update).toMatchObject({
+      status: "completed",
+      rawOutput: "The file /a.ts has been updated successfully.",
+    });
+    expect(notifications[0].update).not.toHaveProperty("content");
   });
 
   it("should not emit tool_call_update for TodoWrite (emits plan instead)", () => {
@@ -507,7 +547,7 @@ describe("Bash terminal output", () => {
       const toolResult = makeBashResult("file1.txt\nfile2.txt", "", 0);
       const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: {
           terminal_id: "toolu_bash",
@@ -535,7 +575,7 @@ describe("Bash terminal output", () => {
       };
       const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: { terminal_id: "toolu_bash" },
         terminal_output: { terminal_id: "toolu_bash", data: "out" },
@@ -547,7 +587,7 @@ describe("Bash terminal output", () => {
       const toolResult = makeBashResult("out", "", 0);
       const update = toolUpdateFromToolResult(toolResult, { name: "Bash" }, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: { terminal_id: "toolu_bash" },
         terminal_output: { terminal_id: "toolu_bash", data: "out" },
@@ -584,7 +624,7 @@ describe("Bash terminal output", () => {
       const toolResult = makeBashResult("out", "", 0);
       const update = toolUpdateFromToolResult(toolResult, { id: "", name: "Bash" }, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: { terminal_id: "toolu_bash" },
         terminal_output: { terminal_id: "toolu_bash", data: "out" },
@@ -632,7 +672,7 @@ describe("Bash terminal output", () => {
       };
       const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: { terminal_id: "toolu_bash" },
         terminal_output: { terminal_id: "toolu_bash", data: "some error output" },
@@ -659,7 +699,7 @@ describe("Bash terminal output", () => {
       const toolResult = makeBashResult("", "", 0);
       const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta).toEqual({
         terminal_info: {
           terminal_id: "toolu_bash",
@@ -703,7 +743,7 @@ describe("Bash terminal output", () => {
       const toolResult = makeBashResult("hello\n\n\n", "", 0);
       const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-      expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+      expect(update.content).toBeUndefined();
       expect(update._meta?.terminal_output?.data).toBe("hello\n\n\n");
     });
 
@@ -740,7 +780,7 @@ describe("Bash terminal output", () => {
         const toolResult = makeStringBashResult("Cargo.lock\nCargo.toml\nREADME.md");
         const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-        expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+        expect(update.content).toBeUndefined();
         expect(update._meta).toEqual({
           terminal_info: { terminal_id: "toolu_bash" },
           terminal_output: { terminal_id: "toolu_bash", data: "Cargo.lock\nCargo.toml\nREADME.md" },
@@ -755,7 +795,7 @@ describe("Bash terminal output", () => {
         // Failed Bash commands skip the early error return and reach the Bash
         // case so the client receives terminal output with a non-zero exit code
         // instead of plain markdown details.
-        expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+        expect(update.content).toBeUndefined();
         expect(update._meta).toEqual({
           terminal_info: { terminal_id: "toolu_bash" },
           terminal_output: { terminal_id: "toolu_bash", data: "command not found: bad_cmd" },
@@ -793,7 +833,7 @@ describe("Bash terminal output", () => {
         const toolResult = makeStringBashResult("");
         const update = toolUpdateFromToolResult(toolResult, bashToolUse, true);
 
-        expect(update.content).toEqual([{ type: "terminal", terminalId: "toolu_bash" }]);
+        expect(update.content).toBeUndefined();
         expect(update._meta).toEqual({
           terminal_info: { terminal_id: "toolu_bash" },
           terminal_output: { terminal_id: "toolu_bash", data: "" },
@@ -1013,7 +1053,7 @@ describe("Bash terminal output", () => {
       expect((update as any)._meta).not.toHaveProperty("terminal_info");
       expect((update as any)._meta).not.toHaveProperty("terminal_output");
       expect((update as any)._meta).not.toHaveProperty("terminal_exit");
-      expect(update).toHaveProperty("rawOutput", bashResult);
+      expect(update).not.toHaveProperty("rawOutput");
     });
 
     it("should not include terminal _meta when _meta.terminal_output is false", () => {
@@ -1065,11 +1105,11 @@ describe("Bash terminal output", () => {
         mockLogger,
       );
 
-      // With support: output is delivered via terminal_output _meta, content references the terminal widget
+      // With support: output is delivered via terminal_output _meta. The
+      // terminal content came with the tool_call and is not resent.
       expect(withSupport).toHaveLength(2);
-      expect((withSupport[1].update as any).content).toEqual([
-        { type: "terminal", terminalId: "toolu_bash" },
-      ]);
+      expect(withSupport[1].update).not.toHaveProperty("content");
+      expect(withSupport[1].update).not.toHaveProperty("rawOutput");
 
       // Without support: content is on the only notification
       expect((withoutSupport[0].update as any).content).toEqual([
@@ -1859,7 +1899,6 @@ describe("PowerShell terminal output", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: id,
       status: "failed",
-      content: [{ type: "terminal", terminalId: id }],
       _meta: {
         terminal_exit: {
           terminal_id: id,
@@ -1869,6 +1908,7 @@ describe("PowerShell terminal output", () => {
       },
     });
     expect(exited).not.toHaveProperty("rawOutput");
+    expect(exited).not.toHaveProperty("content");
   });
 });
 
@@ -3078,7 +3118,12 @@ describe("tool_result_meta non-execution stamping", () => {
       mockLogger,
     );
 
-    expect(notifications[0].update).toMatchObject({ rawOutput: fenced });
+    expect(notifications[0].update).toMatchObject({
+      content: [
+        { type: "content", content: { type: "text", text: `\`\`\`console\n${fenced}\n\`\`\`` } },
+      ],
+    });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 
   it("stamps nonExecutionKind and userFeedback on the failed tool_call_update", () => {

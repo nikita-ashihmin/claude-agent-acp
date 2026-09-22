@@ -852,8 +852,10 @@ export function toolUpdateFromToolResult(
       // arrives, showing an empty terminal. Fall through to the code-block
       // rendering below instead.
       if (supportsTerminalOutput && terminalId !== undefined) {
+        // No content: the tool_call already carries the terminal block (see
+        // `toolInfoFromToolUse`), and a tool_call_update resends only the
+        // fields that changed.
         return {
-          content: [{ type: "terminal" as const, terminalId }],
           _meta: {
             terminal_info: {
               terminal_id: terminalId,
