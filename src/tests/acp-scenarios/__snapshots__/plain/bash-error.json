@@ -1,0 +1,154 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
+        "toolCallId": "toolu_bash",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "false"
+        },
+        "title": "false"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "false",
+          "description": "Fail"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Fail"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_bash",
+        "sessionUpdate": "tool_call_update",
+        "status": "failed",
+        "rawOutput": "Exit code 1\nboom",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\nExit code 1\nboom\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

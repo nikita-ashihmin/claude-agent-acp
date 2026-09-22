@@ -1,0 +1,189 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "NotebookEdit"
+          }
+        },
+        "toolCallId": "toolu_nb",
+        "sessionUpdate": "tool_call",
+        "name": "NotebookEdit",
+        "status": "pending",
+        "title": "Edit notebook",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_nb",
+        "sessionUpdate": "tool_call_update",
+        "title": "Edit cell in n.ipynb",
+        "locations": [
+          {
+            "path": "<cwd>/n.ipynb"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_nb",
+        "sessionUpdate": "tool_call_update",
+        "title": "Edit cell cell-1 in n.ipynb"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_nb",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "notebook_path": "<cwd>/n.ipynb",
+          "cell_id": "cell-1",
+          "new_source": "print('hi')",
+          "edit_mode": "replace"
+        }
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_nb",
+        "title": "Edit cell cell-1 in n.ipynb",
+        "rawInput": {
+          "notebook_path": "<cwd>/n.ipynb",
+          "cell_id": "cell-1",
+          "new_source": "print('hi')",
+          "edit_mode": "replace"
+        }
+      },
+      "_meta": {
+        "jetbrains": {
+          "air": {
+            "version": 1,
+            "permission": {
+              "version": 1,
+              "title": "Edit cell cell-1 in n.ipynb"
+            }
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_nb",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

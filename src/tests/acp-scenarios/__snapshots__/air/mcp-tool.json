@@ -1,0 +1,173 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "mcp__docs__search"
+          },
+          "is_mcp_tool_call": true
+        },
+        "toolCallId": "toolu_mcp",
+        "sessionUpdate": "tool_call",
+        "name": "mcp__docs__search",
+        "status": "pending",
+        "title": "mcp__docs__search",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_mcp",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "q": "acp"
+        }
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_mcp",
+        "title": "mcp__docs__search",
+        "rawInput": {
+          "q": "acp"
+        },
+        "_meta": {
+          "claudeCode": {
+            "mcpServer": {
+              "name": "docs",
+              "source": "project"
+            }
+          }
+        }
+      },
+      "_meta": {
+        "jetbrains": {
+          "air": {
+            "version": 1,
+            "permission": {
+              "version": 1,
+              "title": "mcp__docs__search"
+            }
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_mcp",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Found 2 documents."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

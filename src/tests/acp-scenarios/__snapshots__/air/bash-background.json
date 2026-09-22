@@ -1,0 +1,233 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          },
+          "terminal_info": {
+            "terminal_id": "toolu_bg"
+          }
+        },
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_bg"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call_update",
+        "title": "sleep 100"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "jetbrains": {
+            "air": {
+              "version": 1,
+              "commandTitle": "Wait"
+            }
+          }
+        },
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "sleep 100",
+          "description": "Wait",
+          "run_in_background": true
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "async_task_spawned",
+        "asyncTaskId": "bash_1",
+        "name": "sleep 100",
+        "taskType": "shell",
+        "description": "sleep 100",
+        "showInTranscript": true,
+        "canStop": true,
+        "outputFilePath": "/tmp/tasks/bash_1.output",
+        "toolCallId": "toolu_bg"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "terminal_output_delta": {
+            "terminal_id": "toolu_bg",
+            "data": "Command running in background with ID: bash_1. Output is being written to: /tmp/tasks/bash_1.output. You will be notified when it completes."
+          },
+          "jetbrains": {
+            "air": {
+              "asyncTasks": {
+                "backgrounded": true
+              }
+            }
+          }
+        },
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "terminal_exit": {
+            "terminal_id": "toolu_bg",
+            "exit_code": 0,
+            "signal": null
+          }
+        },
+        "toolCallId": "toolu_bg",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "async_task_progress",
+        "asyncTaskId": "bash_1",
+        "summary": "still running",
+        "usage": {
+          "totalTokens": 0,
+          "toolUses": 0,
+          "durationMs": "<number>"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "async_task_state_update",
+        "asyncTaskId": "bash_1",
+        "state": "completed",
+        "summary": "done"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

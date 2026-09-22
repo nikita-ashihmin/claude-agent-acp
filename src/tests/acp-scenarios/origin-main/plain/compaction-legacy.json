@@ -1,0 +1,133 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "tool_call",
+        "toolCallId": "<id-1>",
+        "title": "Compact conversation",
+        "kind": "think",
+        "status": "in_progress",
+        "_meta": {
+          "contextCompaction": {
+            "version": 1
+          },
+          "claudeCode": {
+            "toolName": "compact"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "<id-1>",
+        "status": "in_progress",
+        "_meta": {
+          "contextCompaction": {
+            "version": 1
+          },
+          "claudeCode": {
+            "toolName": "compact"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "<id-1>",
+        "status": "completed",
+        "rawOutput": {
+          "trigger": "automatic",
+          "preTokens": 1000,
+          "postTokens": 100,
+          "durationMs": "<number>"
+        },
+        "_meta": {
+          "contextCompaction": {
+            "version": 1,
+            "trigger": "automatic",
+            "preTokens": 1000,
+            "postTokens": 100,
+            "durationMs": "<number>"
+          },
+          "claudeCode": {
+            "toolName": "compact"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-2>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 100,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 100,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

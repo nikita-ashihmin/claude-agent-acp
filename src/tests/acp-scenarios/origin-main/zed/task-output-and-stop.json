@@ -1,0 +1,243 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
+        "toolCallId": "toolu_out",
+        "sessionUpdate": "tool_call",
+        "name": "TaskOutput",
+        "rawInput": {},
+        "status": "pending",
+        "title": "TaskOutput",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
+        "toolCallId": "toolu_out",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "task_id": "bash_1"
+        },
+        "title": "TaskOutput",
+        "kind": "other"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
+        "toolCallId": "toolu_out",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "task_id": "bash_1",
+          "block": true
+        },
+        "title": "TaskOutput",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
+        "toolCallId": "toolu_out",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "<retrieval_status>success</retrieval_status>\n<output>done</output>",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "<retrieval_status>success</retrieval_status>\n<output>done</output>"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskStop"
+          }
+        },
+        "toolCallId": "toolu_stop",
+        "sessionUpdate": "tool_call",
+        "name": "TaskStop",
+        "rawInput": {},
+        "status": "pending",
+        "title": "TaskStop",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskStop"
+          }
+        },
+        "toolCallId": "toolu_stop",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "task_id": "bash_1"
+        },
+        "title": "TaskStop",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskStop"
+          }
+        },
+        "toolCallId": "toolu_stop",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "Successfully stopped task: bash_1",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Successfully stopped task: bash_1"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

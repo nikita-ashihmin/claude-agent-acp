@@ -1,0 +1,97 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-1>",
+      "update": {
+        "sessionUpdate": "tool_call",
+        "toolCallId": "<id-2>",
+        "title": "Recalled 2 memories",
+        "kind": "read",
+        "status": "completed",
+        "locations": [
+          {
+            "path": "/memory/a.md"
+          },
+          {
+            "path": "/memory/b.md"
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolName": "memory_recall",
+            "toolResponse": {
+              "mode": "select"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-1>",
+      "update": {
+        "sessionUpdate": "tool_call",
+        "toolCallId": "<id-3>",
+        "title": "Recalled synthesized memory",
+        "kind": "read",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "The user prefers tabs."
+            }
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolName": "memory_recall",
+            "toolResponse": {
+              "mode": "synthesize"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

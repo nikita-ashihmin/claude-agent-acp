@@ -1,0 +1,243 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call",
+        "name": "Write",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Preparing file…",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/new.ts"
+        },
+        "title": "Write new.ts",
+        "kind": "edit",
+        "locations": [
+          {
+            "path": "<cwd>/new.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/new.ts",
+          "content": "export const x = 1;\n"
+        },
+        "title": "Write new.ts",
+        "kind": "edit",
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/new.ts",
+            "oldText": null,
+            "newText": "export const x = 1;\n"
+          }
+        ],
+        "locations": [
+          {
+            "path": "<cwd>/new.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_write",
+        "name": "Write",
+        "status": "pending",
+        "rawInput": {
+          "file_path": "<cwd>/new.ts",
+          "content": "export const x = 1;\n"
+        },
+        "title": "Write new.ts",
+        "kind": "edit",
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/new.ts",
+            "oldText": null,
+            "newText": "export const x = 1;\n"
+          }
+        ],
+        "locations": [
+          {
+            "path": "<cwd>/new.ts"
+          }
+        ]
+      },
+      "_meta": {
+        "permission": {
+          "version": 1,
+          "title": "Write new.ts"
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "File created successfully at: <cwd>/new.ts"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "type": "create",
+              "filePath": "<cwd>/new.ts",
+              "content": "export const x = 1;\n",
+              "structuredPatch": [],
+              "originalFile": null
+            },
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

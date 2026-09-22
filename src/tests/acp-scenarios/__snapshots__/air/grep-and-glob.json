@@ -1,0 +1,220 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
+        "toolCallId": "toolu_grep",
+        "sessionUpdate": "tool_call",
+        "name": "Grep",
+        "status": "pending",
+        "title": "grep",
+        "kind": "search",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_grep",
+        "sessionUpdate": "tool_call_update",
+        "title": "grep \"value\""
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_grep",
+        "sessionUpdate": "tool_call_update",
+        "title": "grep \"value\" src"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_grep",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "value",
+          "path": "src",
+          "output_mode": "content",
+          "-n": true
+        },
+        "title": "grep -n \"value\" src"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_grep",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "src/app.ts:2:const value = 1;"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob"
+          }
+        },
+        "toolCallId": "toolu_glob",
+        "sessionUpdate": "tool_call",
+        "name": "Glob",
+        "status": "pending",
+        "title": "Find",
+        "kind": "search",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_glob",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "**/*.ts"
+        },
+        "title": "Find `**/*.ts`"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_glob",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "src/app.ts\nsrc/b.ts"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,511 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_spawned",
+        "subagentSessionId": "agent_1",
+        "name": "Explore code",
+        "task": "Find the parser",
+        "capabilities": {}
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Looking for"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": " the parser."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call",
+        "name": "Read",
+        "status": "pending",
+        "title": "Read File",
+        "kind": "read",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "/x.ts"
+        },
+        "title": "Read /x.ts",
+        "locations": [
+          {
+            "path": "/x.ts",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\n1\tparser\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          },
+          "terminal_info": {
+            "terminal_id": "toolu_sub_bash"
+          }
+        },
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_sub_bash"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "title": "rg parser"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "jetbrains": {
+            "air": {
+              "version": 1,
+              "commandTitle": "Search"
+            }
+          }
+        },
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "rg parser",
+          "description": "Search"
+        }
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_sub_bash",
+        "title": "rg parser",
+        "rawInput": {
+          "command": "rg parser",
+          "description": "Search"
+        }
+      },
+      "_meta": {
+        "jetbrains": {
+          "air": {
+            "version": 1,
+            "permission": {
+              "version": 1,
+              "title": "rg parser"
+            }
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "agent_1"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "terminal_output_delta": {
+            "terminal_id": "toolu_sub_bash",
+            "data": "x.ts"
+          }
+        },
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "terminal_exit": {
+            "terminal_id": "toolu_sub_bash",
+            "exit_code": 0,
+            "signal": null
+          }
+        },
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call",
+        "name": "Edit",
+        "status": "pending",
+        "title": "Edit",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "title": "Edit x.ts",
+        "locations": [
+          {
+            "path": "<cwd>/x.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts"
+        },
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/x.ts",
+            "oldText": "a",
+            "newText": "b"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_sub_edit",
+        "title": "Edit x.ts",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts"
+        }
+      },
+      "_meta": {
+        "jetbrains": {
+          "air": {
+            "version": 1,
+            "permission": {
+              "version": 1,
+              "title": "Edit x.ts"
+            }
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "agent_1"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "The file has been updated."
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "locations": [
+          {
+            "path": "<cwd>/x.ts",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Foun"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_2"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_1",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "d it."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_2"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "status": "completed"
+            },
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_state_update",
+        "subagentSessionId": "agent_1",
+        "state": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,245 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call",
+        "name": "Agent",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Background review"
+        },
+        "title": "Background review"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Background review",
+          "prompt": "Review the diff"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Background review",
+          "prompt": "Review the diff",
+          "subagent_type": "general-purpose"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Background review",
+          "prompt": "Review the diff",
+          "subagent_type": "general-purpose",
+          "run_in_background": true
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Review the diff"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "Async agent launched successfully.\nagentId: a2 (use SendMessage to continue)",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Async agent launched successfully."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "status": "async_launched",
+              "isAsync": true,
+              "agentId": "a2",
+              "description": "Background review",
+              "prompt": "Review the diff",
+              "outputFile": "/tmp/tasks/a2.output"
+            }
+          }
+        },
+        "toolCallId": "toolu_agent",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Reviewi"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_agent"
+          }
+        },
+        "messageId": "msg_async_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "ng now."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_agent"
+          }
+        },
+        "messageId": "msg_async_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

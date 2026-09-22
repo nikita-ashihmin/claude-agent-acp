@@ -1,0 +1,214 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "AskUserQuestion"
+          }
+        },
+        "toolCallId": "toolu_ask",
+        "sessionUpdate": "tool_call",
+        "name": "AskUserQuestion",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Asking for your input",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "AskUserQuestion"
+          }
+        },
+        "toolCallId": "toolu_ask",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "questions": [
+            {
+              "question": "Which database?",
+              "header": "Database",
+              "options": [
+                {
+                  "label": "Postgres",
+                  "description": "Relational",
+                  "preview": "CREATE TABLE t ();"
+                },
+                {
+                  "label": "Redis",
+                  "description": "Key-value"
+                }
+              ],
+              "multiSelect": false
+            }
+          ]
+        },
+        "title": "Which database?",
+        "kind": "other",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Which database?"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "createElicitation",
+    "payload": {
+      "mode": "form",
+      "sessionId": "<session>",
+      "toolCallId": "toolu_ask",
+      "message": "Which database?",
+      "requestedSchema": {
+        "type": "object",
+        "properties": {
+          "question_0": {
+            "type": "string",
+            "title": "Database",
+            "oneOf": [
+              {
+                "const": "Postgres",
+                "title": "Postgres",
+                "description": "Relational",
+                "_meta": {
+                  "_claude/askUserQuestionOption": {
+                    "preview": "CREATE TABLE t ();"
+                  }
+                }
+              },
+              {
+                "const": "Redis",
+                "title": "Redis",
+                "description": "Key-value"
+              }
+            ]
+          },
+          "question_0_custom": {
+            "type": "string",
+            "title": "Other",
+            "description": "Type your own answer, or add a note to the option you chose above (optional).",
+            "_meta": {
+              "_askUserQuestionCustomAnswer": {
+                "questionId": "question_0",
+                "isCustomAnswer": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "AskUserQuestion"
+          }
+        },
+        "toolCallId": "toolu_ask",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "User has answered your questions: \"Which database?\"=\"Postgres\".",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "User has answered your questions: \"Which database?\"=\"Postgres\"."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,264 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebFetch"
+          }
+        },
+        "toolCallId": "toolu_fetch",
+        "sessionUpdate": "tool_call",
+        "name": "WebFetch",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Fetch",
+        "kind": "fetch",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_fetch",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "url": "https://example.com"
+        },
+        "title": "Fetch https://example.com"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_fetch",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "url": "https://example.com",
+          "prompt": "Summarize the page"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Summarize the page"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_fetch",
+        "name": "WebFetch",
+        "status": "pending",
+        "rawInput": {
+          "url": "https://example.com",
+          "prompt": "Summarize the page"
+        },
+        "title": "Fetch https://example.com",
+        "kind": "fetch",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Summarize the page"
+            }
+          }
+        ]
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "allow-with-updates",
+          "name": "Yes, and don't ask again for example.com",
+          "kind": "allow_always"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_fetch",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "The page is an example.",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "The page is an example."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebSearch"
+          }
+        },
+        "toolCallId": "toolu_search",
+        "sessionUpdate": "tool_call",
+        "name": "WebSearch",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Web search",
+        "kind": "fetch",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_search",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "query": "acp protocol"
+        },
+        "title": "Search \"acp protocol\""
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_search",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "Web search results for query: \"acp protocol\"\n\nLinks: [...]",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "ACP (https://agentclientprotocol.com)\nA summary."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

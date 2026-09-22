@@ -1,0 +1,98 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "SandboxNetworkAccess"
+          }
+        },
+        "toolCallId": "toolu_net",
+        "sessionUpdate": "tool_call",
+        "name": "SandboxNetworkAccess",
+        "rawInput": {
+          "host": "example.com"
+        },
+        "status": "pending",
+        "title": "SandboxNetworkAccess",
+        "kind": "other",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_net",
+        "name": "SandboxNetworkAccess",
+        "status": "pending",
+        "rawInput": {
+          "host": "example.com"
+        },
+        "title": "example.com",
+        "kind": "other",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```json\n{\n  \"host\": \"example.com\"\n}\n```"
+            }
+          }
+        ]
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

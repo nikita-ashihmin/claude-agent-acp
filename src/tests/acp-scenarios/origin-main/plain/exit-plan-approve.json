@@ -1,0 +1,196 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "ExitPlanMode"
+          }
+        },
+        "toolCallId": "toolu_plan",
+        "sessionUpdate": "tool_call",
+        "name": "ExitPlanMode",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Approve Plan",
+        "kind": "switch_mode",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "ExitPlanMode"
+          }
+        },
+        "toolCallId": "toolu_plan",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "plan": "# Plan\n1. Do it"
+        },
+        "title": "Approve Plan",
+        "kind": "switch_mode",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "# Plan\n1. Do it"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_plan",
+        "name": "ExitPlanMode",
+        "status": "pending",
+        "rawInput": {
+          "plan": "# Plan\n1. Do it"
+        },
+        "title": "Approve Plan",
+        "kind": "switch_mode",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "# Plan\n1. Do it"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "permission": {
+          "version": 1,
+          "title": "Ready to code?"
+        }
+      },
+      "options": [
+        {
+          "optionId": "exit-plan-default",
+          "name": "Yes, manually approve edits",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "exit-plan-clear-auto",
+          "name": "Yes, clear context (0% used) and use auto mode",
+          "kind": "allow_always"
+        },
+        {
+          "optionId": "exit-plan-auto",
+          "name": "Yes, and use auto mode",
+          "kind": "allow_always"
+        },
+        {
+          "optionId": "reject",
+          "name": "No, keep planning",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "ExitPlanMode"
+          }
+        },
+        "toolCallId": "toolu_plan",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "User has approved your plan. You can now start coding.\n\n## Approved Plan:\n# Plan\n1. Do it",
+        "title": "Exited Plan Mode"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

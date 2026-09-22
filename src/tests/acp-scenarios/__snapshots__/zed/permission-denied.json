@@ -1,0 +1,186 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          },
+          "terminal_info": {
+            "terminal_id": "toolu_denied"
+          }
+        },
+        "toolCallId": "toolu_denied",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_denied"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_denied",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "rm -rf /"
+        },
+        "title": "rm -rf /"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-1>",
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "toolu_denied",
+        "status": "failed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Permission denied: Denied by rule Bash(rm:*)"
+            }
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "decisionReasonType": "rule",
+              "decisionReason": "Denied by rule Bash(rm:*)",
+              "message": "Permission to use Bash has been denied."
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "terminal_output": {
+            "terminal_id": "toolu_denied",
+            "data": "Permission to use Bash has been denied."
+          }
+        },
+        "toolCallId": "toolu_denied",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "terminal_exit": {
+            "terminal_id": "toolu_denied",
+            "exit_code": 1,
+            "signal": null
+          }
+        },
+        "toolCallId": "toolu_denied",
+        "sessionUpdate": "tool_call_update",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_denied"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

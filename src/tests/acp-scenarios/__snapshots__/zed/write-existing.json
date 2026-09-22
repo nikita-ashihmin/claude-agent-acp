@@ -1,0 +1,196 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call",
+        "name": "Write",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Preparing file…",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/old.ts"
+        },
+        "title": "Write old.ts",
+        "locations": [
+          {
+            "path": "<cwd>/old.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/old.ts",
+          "content": "export const x = 1;\n"
+        },
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/old.ts",
+            "oldText": null,
+            "newText": "export const x = 1;\n"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "The file <cwd>/old.ts has been updated successfully."
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "type": "update",
+              "filePath": "<cwd>/old.ts",
+              "content": "export const x = 1;\n",
+              "structuredPatch": [
+                {
+                  "oldStart": 1,
+                  "oldLines": 1,
+                  "newStart": 1,
+                  "newLines": 1,
+                  "lines": [
+                    "-export const x = 0;",
+                    "+export const x = 1;"
+                  ]
+                }
+              ],
+              "originalFile": "export const x = 0;\n"
+            }
+          }
+        },
+        "toolCallId": "toolu_write",
+        "sessionUpdate": "tool_call_update",
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/old.ts",
+            "oldText": "export const x = 0;",
+            "newText": "export const x = 1;"
+          }
+        ],
+        "locations": [
+          {
+            "path": "<cwd>/old.ts",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

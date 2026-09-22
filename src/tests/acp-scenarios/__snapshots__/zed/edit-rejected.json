@@ -1,0 +1,217 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
+        "toolCallId": "toolu_edit",
+        "sessionUpdate": "tool_call",
+        "name": "Edit",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Edit",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/src/app.ts"
+        },
+        "title": "Edit src/app.ts",
+        "locations": [
+          {
+            "path": "<cwd>/src/app.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/src/app.ts",
+          "old_string": "value = 1"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/src/app.ts",
+          "old_string": "value = 1",
+          "new_string": "value = 2"
+        },
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/src/app.ts",
+            "oldText": "value = 1",
+            "newText": "value = 2"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_edit",
+        "name": "Edit",
+        "status": "pending",
+        "rawInput": {
+          "file_path": "<cwd>/src/app.ts",
+          "old_string": "value = 1",
+          "new_string": "value = 2"
+        },
+        "title": "Edit src/app.ts",
+        "kind": "edit",
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/src/app.ts",
+            "oldText": "value = 1",
+            "newText": "value = 2"
+          }
+        ],
+        "locations": [
+          {
+            "path": "<cwd>/src/app.ts"
+          }
+        ]
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_edit",
+        "sessionUpdate": "tool_call_update",
+        "status": "failed",
+        "rawOutput": "The user doesn't want to proceed with this tool use. The tool use was rejected.",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\nThe user doesn't want to proceed with this tool use. The tool use was rejected.\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

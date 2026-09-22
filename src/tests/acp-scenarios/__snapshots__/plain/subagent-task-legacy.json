@@ -1,0 +1,665 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call",
+        "name": "Task",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Explore code"
+        },
+        "title": "Explore code"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Explore code",
+          "prompt": "Find the parser"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Explore code",
+          "prompt": "Find the parser",
+          "subagent_type": "Explore"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Find the parser"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Looking for"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": " the parser."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call",
+        "name": "Read",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Read File",
+        "kind": "read",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "/x.ts"
+        },
+        "title": "Read /x.ts",
+        "locations": [
+          {
+            "path": "/x.ts",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-1>",
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "toolu_task",
+        "status": "in_progress",
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "elapsedTimeSeconds": 3,
+              "subagentType": "Explore"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_read",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "1\tparser",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\n1\tparser\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "rg parser"
+        },
+        "title": "rg parser"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "rg parser",
+          "description": "Search"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Search"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_sub_bash",
+        "name": "Bash",
+        "status": "pending",
+        "rawInput": {
+          "command": "rg parser",
+          "description": "Search"
+        },
+        "title": "rg parser",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Search"
+            }
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_bash",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "x.ts",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```console\nx.ts\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call",
+        "name": "Edit",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Edit",
+        "kind": "edit",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts"
+        },
+        "title": "Edit x.ts",
+        "locations": [
+          {
+            "path": "<cwd>/x.ts"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts",
+          "old_string": "a"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts",
+          "old_string": "a",
+          "new_string": "b"
+        },
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/x.ts",
+            "oldText": "a",
+            "newText": "b"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_sub_edit",
+        "name": "Edit",
+        "status": "pending",
+        "rawInput": {
+          "file_path": "<cwd>/x.ts",
+          "old_string": "a",
+          "new_string": "b"
+        },
+        "title": "Edit x.ts",
+        "kind": "edit",
+        "content": [
+          {
+            "type": "diff",
+            "path": "<cwd>/x.ts",
+            "oldText": "a",
+            "newText": "b"
+          }
+        ],
+        "locations": [
+          {
+            "path": "<cwd>/x.ts"
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "The file has been updated."
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "filePath": "<cwd>/x.ts",
+              "oldString": "a",
+              "newString": "b",
+              "originalFile": "a\n",
+              "structuredPatch": [
+                {
+                  "oldStart": 1,
+                  "oldLines": 1,
+                  "newStart": 1,
+                  "newLines": 1,
+                  "lines": [
+                    "-a",
+                    "+b"
+                  ]
+                }
+              ],
+              "userModified": false,
+              "replaceAll": false
+            }
+          }
+        },
+        "toolCallId": "toolu_sub_edit",
+        "sessionUpdate": "tool_call_update",
+        "locations": [
+          {
+            "path": "<cwd>/x.ts",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Foun"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_2"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "d it."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
+          }
+        },
+        "messageId": "msg_sub_2"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "The parser is in x.ts.\nagentId: a1 (use SendMessage to continue)"
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "The parser is in x.ts."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolResponse": {
+              "status": "completed",
+              "agentId": "a1",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The parser is in x.ts."
+                }
+              ],
+              "totalDurationMs": "<number>",
+              "totalTokens": 5,
+              "totalToolUseCount": 1,
+              "prompt": "Find the parser"
+            }
+          }
+        },
+        "toolCallId": "toolu_task",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]
