@@ -8698,6 +8698,7 @@ describe("logout", () => {
         "nativeSubagentSessions",
         "asyncTasks",
         "recommendedValue",
+        "diffPatch",
       ],
     });
   });
@@ -8717,6 +8718,7 @@ describe("logout", () => {
         "nativeSubagentSessions",
         "asyncTasks",
         "recommendedValue",
+        "diffPatch",
       ],
     });
   });

@@ -1,4 +1,8 @@
-import type { RequestPermissionRequest, ToolCallLocation } from "@agentclientprotocol/sdk";
+import type {
+  RequestPermissionRequest,
+  ToolCallContent,
+  ToolCallLocation,
+} from "@agentclientprotocol/sdk";
 import { toolInfoFromToolUse } from "../tools.js";
 
 export interface ClaudePermissionPresentationInput {
@@ -7,6 +11,8 @@ export interface ClaudePermissionPresentationInput {
   toolUseID: string;
   cwd?: string;
   supportsTerminalOutput?: boolean;
+  supportsDiffPatch?: boolean;
+  previewContent?: ToolCallContent[];
   blockedPath?: string;
   title?: string;
   displayName?: string;
@@ -57,6 +63,7 @@ export function buildClaudePermissionPresentation(
     { id: value.toolUseID, name: value.toolName, input: value.input },
     value.supportsTerminalOutput ?? false,
     value.cwd,
+    value.supportsDiffPatch ?? false,
   );
   const host =
     value.toolName === "SandboxNetworkAccess" ? compactText(value.input.host) : undefined;
@@ -73,7 +80,7 @@ export function buildClaudePermissionPresentation(
             },
           },
         ]
-      : info.content;
+      : (value.previewContent ?? info.content);
   // Reuse the exact standard tool-call heading as the permission heading so
   // the approval never maintains a second, divergent name for the operation.
   // decisionReason is temporarily exposed as the permission description so

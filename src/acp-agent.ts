@@ -53,6 +53,7 @@ import {
   WriteTextFileRequest,
   WriteTextFileResponse,
   StopReason,
+  ToolCallContent,
 } from "@agentclientprotocol/sdk";
 import {
   AccountInfo,
@@ -112,6 +113,7 @@ import {
 } from "./native-subagents.js";
 import {
   AIR_ASYNC_TASKS_CAPABILITY,
+  AIR_DIFF_PATCH_CAPABILITY,
   AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
   clientSupportsAirCapability,
   withAirMeta,
@@ -229,7 +231,7 @@ import {
   toolUpdateFromToolResult,
   unregisterHookCallback,
 } from "./tools.js";
-import { toolUpdateFromDiffToolResponse } from "./diff.js";
+import { previewPatchContent, toolUpdateFromDiffToolResponse } from "./diff.js";
 import { nodeToWebReadable, nodeToWebWritable, Pushable, unreachable } from "./utils.js";
 import {
   acceptedPlanToolResult,
@@ -2142,6 +2144,7 @@ export class ClaudeAcpAgent {
           AIR_NATIVE_SUBAGENT_SESSIONS_CAPABILITY,
           AIR_ASYNC_TASKS_CAPABILITY,
           AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
+          AIR_DIFF_PATCH_CAPABILITY,
         ),
         steering: {
           supported: true,
@@ -6948,6 +6951,7 @@ export class ClaudeAcpAgent {
       parentToolUseId,
       signal,
       params.sessionId,
+      params.toolCall.content ?? undefined,
     );
     if (signal.aborted) throw new Error("Tool use aborted");
 
@@ -6986,6 +6990,7 @@ export class ClaudeAcpAgent {
     parentToolUseId?: string,
     signal?: AbortSignal,
     notificationSessionId: string = sessionId,
+    previewContent?: ToolCallContent[],
   ): Promise<void> {
     const session = this.sessions[sessionId];
     if (!session) {
@@ -7004,7 +7009,10 @@ export class ClaudeAcpAgent {
       toolInput,
       supportsTerminalOutput,
       session.cwd,
+      false,
+      clientSupportsAirCapability(this.clientCapabilities, AIR_DIFF_PATCH_CAPABILITY),
     );
+    if (previewContent !== undefined && "content" in update) update.content = previewContent;
     if (parentToolUseId) {
       update._meta = {
         ...update._meta,
@@ -7123,12 +7131,21 @@ export class ClaudeAcpAgent {
       // Artifact publishes).
       const noPersistentRule = matchedAskRule !== undefined || suppressAlwaysAllowRule === true;
       const durableChangeSet = normalizeDurablePermissionChangeSet(suggestions, noPersistentRule);
+      const supportsDiffPatch = clientSupportsAirCapability(
+        this.clientCapabilities,
+        AIR_DIFF_PATCH_CAPABILITY,
+      );
+      const previewContent = supportsDiffPatch
+        ? await previewPatchContent(toolName, toolInput, session.cwd)
+        : undefined;
       const presentation = buildClaudePermissionPresentation({
         toolName,
         input: toolInput,
         toolUseID,
         cwd: session.cwd,
         supportsTerminalOutput,
+        supportsDiffPatch,
+        previewContent,
         blockedPath,
         title,
         displayName,
@@ -9413,6 +9430,7 @@ function toolCallNotification(
   supportsTerminalOutput: boolean,
   cwd?: string,
   refine = false,
+  supportsDiffPatch = false,
 ): SessionNotification["update"] {
   if (refine) {
     return {
@@ -9420,7 +9438,7 @@ function toolCallNotification(
       toolCallId: toolUse.id,
       sessionUpdate: "tool_call_update",
       rawInput,
-      ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd),
+      ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd, supportsDiffPatch),
     };
   }
   return {
@@ -9435,7 +9453,7 @@ function toolCallNotification(
     name: toolUse.name,
     rawInput,
     status: "pending",
-    ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd),
+    ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd, supportsDiffPatch),
   };
 }
 
@@ -9520,6 +9538,10 @@ export function toAcpNotifications(
     options?.clientCapabilities?._meta?.["terminal_output_delta"] === true;
   const supportsTerminalOutput =
     supportsTerminalOutputDelta || options?.clientCapabilities?._meta?.["terminal_output"] === true;
+  const supportsDiffPatch = clientSupportsAirCapability(
+    options?.clientCapabilities,
+    AIR_DIFF_PATCH_CAPABILITY,
+  );
   if (typeof content === "string") {
     if (content.length === 0) {
       return [];
@@ -9644,7 +9666,7 @@ export function toAcpNotifications(
                   // helper returns `{}` if the response shape isn't usable.
                   const editDiff =
                     toolName === "Edit" || toolName === "Write"
-                      ? toolUpdateFromDiffToolResponse(toolResponse)
+                      ? toolUpdateFromDiffToolResponse(toolResponse, supportsDiffPatch)
                       : {};
                   const update: SessionNotification["update"] = {
                     _meta: {
@@ -9697,11 +9719,19 @@ export function toAcpNotifications(
               supportsTerminalOutput,
               options?.cwd,
               true,
+              supportsDiffPatch,
             );
           } else {
             // First surface (streaming content_block_start or replay) — send as
             // tool_call (with terminal_info for Bash).
-            update = toolCallNotification(chunk, rawInput, supportsTerminalOutput, options?.cwd);
+            update = toolCallNotification(
+              chunk,
+              rawInput,
+              supportsTerminalOutput,
+              options?.cwd,
+              false,
+              supportsDiffPatch,
+            );
           }
         }
         break;

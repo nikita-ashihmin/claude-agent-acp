@@ -63,6 +63,7 @@ import {
   BetaWebSearchToolResultBlockParam,
 } from "@anthropic-ai/sdk/resources/beta.mjs";
 import path from "node:path";
+import { patchContentFromTexts } from "./diff.js";
 
 /**
  * Union of all possible content types that can appear in tool results from the Anthropic SDK.
@@ -138,6 +139,7 @@ export function toolInfoFromToolUse(
   toolUse: any,
   supportsTerminalOutput: boolean = false,
   cwd?: string,
+  supportsDiffPatch: boolean = false,
 ): ToolInfo {
   const name = toolUse.name;
 
@@ -208,12 +210,14 @@ export function toolInfoFromToolUse(
       let content: ToolCallContent[] = [];
       if (input && input.file_path) {
         content = [
-          {
-            type: "diff",
-            path: input.file_path,
-            oldText: null,
-            newText: input.content,
-          },
+          supportsDiffPatch
+            ? patchContentFromTexts(input.file_path, null, input.content)
+            : {
+                type: "diff",
+                path: input.file_path,
+                oldText: null,
+                newText: input.content,
+              },
         ];
       } else if (input && input.content) {
         content = [
@@ -237,12 +241,18 @@ export function toolInfoFromToolUse(
       let content: ToolCallContent[] = [];
       if (input && input.file_path && (input.old_string || input.new_string)) {
         content = [
-          {
-            type: "diff",
-            path: input.file_path,
-            oldText: input.old_string || null,
-            newText: input.new_string ?? "",
-          },
+          supportsDiffPatch
+            ? patchContentFromTexts(
+                input.file_path,
+                input.old_string || null,
+                input.new_string ?? "",
+              )
+            : {
+                type: "diff",
+                path: input.file_path,
+                oldText: input.old_string || null,
+                newText: input.new_string ?? "",
+              },
         ];
       }
       const displayPath = input?.file_path ? toDisplayPath(input.file_path, cwd) : undefined;

@@ -90,6 +90,34 @@ describe("Claude permission suggestion normalization", () => {
 });
 
 describe("Claude permission ACP v1 presentation", () => {
+  it("uses the provider-built patch for an edit confirmation", () => {
+    const previewContent = [
+      {
+        type: "diff" as const,
+        path: "/work/file.ts",
+        oldText: null,
+        newText: "",
+        _meta: {
+          jetbrains: {
+            air: { version: 1, diffPatch: { version: 1, format: "git_patch", text: "patch" } },
+          },
+        },
+      },
+    ];
+    const presentation = buildClaudePermissionPresentation({
+      toolName: "Edit",
+      input: { file_path: "/work/file.ts", old_string: "old", new_string: "new" },
+      toolUseID: "tool-edit",
+      supportsDiffPatch: true,
+      previewContent,
+    });
+
+    expect(presentation.toolCall.content).toBe(previewContent);
+    expect(presentation.toolCall.content).toEqual([
+      expect.objectContaining({ oldText: null, newText: "" }),
+    ]);
+  });
+
   it("uses Approve Plan as the tool title and keeps the question in permission metadata", () => {
     const presentation = buildClaudePermissionPresentation({
       toolName: "ExitPlanMode",
