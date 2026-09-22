@@ -113,12 +113,9 @@ import {
 } from "./native-subagents.js";
 import {
   AIR_ASYNC_TASKS_CAPABILITY,
-  AIR_COMMAND_TITLE_KEY,
   AIR_DIFF_PATCH_CAPABILITY,
   AIR_GOAL_KEY,
   AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
-  AIR_SKILL_KEY,
-  AIR_SUBAGENT_KEY,
   clientSupportsAirCapability,
   withAirMeta,
 } from "./air-extension.js";
@@ -146,7 +143,6 @@ import { BetaContentBlock, BetaRawContentBlockDelta } from "@anthropic-ai/sdk/re
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { Stats } from "node:fs";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -173,7 +169,6 @@ import { buildClaudePermissionOptions } from "./permissions/options.js";
 import { buildClaudePermissionPresentation } from "./permissions/presentation.js";
 import { decodeClaudePermissionResponse } from "./permissions/response.js";
 import { SettingsManager } from "./settings.js";
-import { ContextCompactionMetadata } from "./context-compaction-meta.js";
 import {
   activeUsageLimitMessage,
   airSessionFailureCapabilityMeta,
@@ -232,23 +227,17 @@ import {
   registerHookCallback,
   TaskState,
   taskStateToPlanEntries,
-  toolInfoFromToolUse,
-  toolResponseMarkers,
-  toolUpdateFromToolResult,
   unregisterHookCallback,
 } from "./tools.js";
-import {
-  patchUpdateFromDiffToolResponse,
-  previewPatchContent,
-  toolUpdateFromDiffToolResponse,
-} from "./diff.js";
-import { ToolCallFieldTracker } from "./tool-call-fields.js";
+import { previewPatchContent } from "./diff.js";
+import { ToolCallFieldTracker } from "./tool-calls/field-tracker.js";
+import { ClientCapabilities as ToolCallClientCapabilities } from "./tool-calls/client-capabilities.js";
+import { AcpToolCallRenderer, type ToolUpdateMeta } from "./tool-calls/renderer.js";
 import { nodeToWebReadable, nodeToWebWritable, Pushable, unreachable } from "./utils.js";
 import {
   acceptedPlanToolResult,
   ExitPlanCoordinator,
   executionDiagnostic,
-  exitPlanModeRawOutput,
   observeExitPlanToolResults,
 } from "./exit-plan.js";
 import { parseToolResultMeta } from "./tool-result-meta.js";
@@ -1271,65 +1260,18 @@ type ProviderConfig = {
   };
 };
 
-export type ToolUpdateMeta = {
-  claudeCode?: {
-    /* The name of the tool that was used in Claude Code. Also carried as the
-       standard ACP `name` field on the initial `tool_call`; kept here so every
-       `tool_call_update` stays self-describing for clients that key off it. */
-    toolName: string;
-    /* Small structured facts provided by Claude Code. On a PostToolUse update
-       only the `status` and `isAsync` markers of the tool_response travel; the
-       tool output itself is in the tool-call content. */
-    toolResponse?: unknown;
-    /* For a tool call made inside a subagent: the tool_use id of the
-       Agent/Task call that spawned the subagent. Mirrors the SDK's
-       `parent_tool_use_id` on streamed subagent messages. */
-    parentToolUseId?: string;
-    /* On a "failed" tool_call_update: why the tool never actually ran, so a
-       client can render the denial/cancellation distinctly from a real tool
-       failure. From the SDK's `tool_result_meta` non_execution_kind:
-       "user-rejected", "permission-rule", "interrupted", "cancelled", …
-       (open set). Absent when the tool executed — including real failures. */
-    nonExecutionKind?: string;
-    /* Free-text the user supplied when rejecting the tool call, when the
-       harness collected any. Only ever present alongside nonExecutionKind. */
-    userFeedback?: string;
+export type { ToolUpdateMeta } from "./tool-calls/renderer.js";
+
+/** Attributes a report to the Agent/Task tool call of the subagent that made it. */
+function stampParentToolUseId(update: SessionNotification["update"], parentToolUseId: string) {
+  update._meta = {
+    ...update._meta,
+    claudeCode: {
+      ...((update._meta?.claudeCode as Record<string, unknown> | undefined) ?? {}),
+      parentToolUseId,
+    },
   };
-  /* The AIR client flags of the ACP tool call contract (`docs/acp-tool-call-contract.md`). */
-  jetbrains?: {
-    air?: {
-      version?: number;
-      /* The concise description of a shell command, kept out of the
-         standard `title`, which clients may use as the command preview. */
-      commandTitle?: string;
-      /* Marks Agent/Task tool calls as subagent launches. ACP has no standard
-         subagent ToolKind yet. */
-      subagent?: true;
-      /* For Skill tool calls: the skill name, and the absolute path of its
-         SKILL.md when it could be located on disk. */
-      skill?: { name: string; path?: string };
-      contextCompaction?: ContextCompactionMetadata;
-      [key: string]: unknown;
-    };
-  };
-  /* Terminal metadata for Bash tool execution, matching codex-acp's _meta protocol. */
-  terminal_info?: {
-    terminal_id: string;
-  };
-  terminal_output?: {
-    terminal_id: string;
-    data: string;
-  };
-  terminal_output_delta?: {
-    terminal_id: string;
-    data: string;
-  };
-  terminal_exit?: {
-    terminal_id: string;
-    exit_code: number;
-    signal: string | null;
-  };
-};
+}
 
 const SUBAGENT_TRANSCRIPT_CAPABILITY = "subagent-transcript";
 
@@ -6966,7 +6908,8 @@ export class ClaudeAcpAgent {
     signal: AbortSignal,
     parentToolUseId?: string,
     ownerSessionId: string = params.sessionId,
-    pinPreviewContent = false,
+    toolInput: unknown = params.toolCall.rawInput,
+    previewContent?: ToolCallContent[],
   ): Promise<RequestPermissionResponse> {
     if (signal.aborted) throw new Error("Tool use aborted");
     // The SDK may invoke `canUseTool` (and therefore this permission request)
@@ -6979,12 +6922,12 @@ export class ClaudeAcpAgent {
       ownerSessionId,
       toolName,
       params.toolCall.toolCallId,
-      params.toolCall.rawInput,
+      toolInput,
       parentToolUseId,
       signal,
       params.sessionId,
-      params.toolCall.content ?? undefined,
-      pinPreviewContent,
+      previewContent,
+      previewContent !== undefined,
     );
     if (signal.aborted) throw new Error("Tool use aborted");
 
@@ -7043,27 +6986,11 @@ export class ClaudeAcpAgent {
     }
     session.emittedToolCalls.add(toolCallId);
     (session.eagerToolCallSessions ??= new Map()).set(toolCallId, notificationSessionId);
-    const supportsTerminalOutput =
-      this.clientCapabilities?._meta?.["terminal_output"] === true ||
-      this.clientCapabilities?._meta?.["terminal_output_delta"] === true;
-    const update = toolCallNotification(
+    const update = AcpToolCallRenderer.for(this.clientCapabilities).toolCall(
       { id: toolCallId, name: toolName, input: toolInput },
-      toolInput,
-      supportsTerminalOutput,
-      session.cwd,
-      false,
-      clientSupportsAirCapability(this.clientCapabilities, AIR_DIFF_PATCH_CAPABILITY),
+      { cwd: session.cwd, previewContent },
     );
-    if (previewContent !== undefined && "content" in update) update.content = previewContent;
-    if (parentToolUseId) {
-      update._meta = {
-        ...update._meta,
-        claudeCode: {
-          ...(update._meta?.claudeCode || {}),
-          parentToolUseId,
-        },
-      };
-    }
+    if (parentToolUseId) stampParentToolUseId(update, parentToolUseId);
     toolCallFieldsOf(session).apply(update);
     pinPreview();
     try {
@@ -7100,9 +7027,6 @@ export class ClaudeAcpAgent {
         mcpServer,
       },
     ) => {
-      const supportsTerminalOutput =
-        this.clientCapabilities?._meta?.["terminal_output"] === true ||
-        this.clientCapabilities?._meta?.["terminal_output_delta"] === true;
       const session = this.sessions[sessionId];
       if (!session) {
         return {
@@ -7188,8 +7112,7 @@ export class ClaudeAcpAgent {
         input: toolInput,
         toolUseID,
         cwd: session.cwd,
-        supportsTerminalOutput,
-        supportsDiffPatch,
+        capabilities: ToolCallClientCapabilities.from(this.clientCapabilities),
         previewContent,
         blockedPath,
         title,
@@ -7205,13 +7128,10 @@ export class ClaudeAcpAgent {
       // server; anything else is configuration) instead of parsing the
       // tool-name prefix. The name is the config key as authored — untrusted
       // text, so it rides `_meta` rather than the title.
-      if (parentToolUseId || mcpServer) {
+      // The client already holds the tool name and the parent tool call.
+      if (mcpServer) {
         presentation.toolCall._meta = {
-          claudeCode: {
-            toolName,
-            ...(parentToolUseId ? { parentToolUseId } : {}),
-            ...(mcpServer ? { mcpServer: { name: mcpServer.name, source: mcpServer.source } } : {}),
-          },
+          claudeCode: { mcpServer: { name: mcpServer.name, source: mcpServer.source } },
         };
       }
 
@@ -7246,7 +7166,8 @@ export class ClaudeAcpAgent {
         signal,
         parentToolUseId,
         sessionId,
-        previewContent !== undefined,
+        toolInput,
+        previewContent,
       );
       if (signal.aborted) throw new Error("Tool use aborted");
       const decodedPermission = decodeClaudePermissionResponse(
@@ -9342,44 +9263,6 @@ function shouldEmitToolCall(toolName: string): boolean {
   return toolName !== "TodoWrite" && !isTaskTool(toolName);
 }
 
-/** Build the `_meta` of a tool call report: the tool name, and the AIR client
- *  flags. Shell (Bash and PowerShell) descriptions are kept out of ACP's
- *  standard `title`, which clients may use as the shell command preview, and
- *  travel as `_meta.jetbrains.air.commandTitle` instead. */
-function toolUseMeta(
-  toolUse: {
-    name: string;
-    input?: unknown;
-  },
-  cwd?: string,
-): ToolUpdateMeta {
-  const description =
-    (toolUse.name === "Bash" || toolUse.name === "PowerShell") &&
-    toolUse.input !== null &&
-    typeof toolUse.input === "object" &&
-    "description" in toolUse.input &&
-    typeof toolUse.input.description === "string"
-      ? toolUse.input.description
-      : undefined;
-  const skillName =
-    toolUse.name === "Skill"
-      ? (toolUse.input as { skill?: string } | null | undefined)?.skill
-      : undefined;
-  const skillPath = skillName ? resolveSkillPath(skillName, cwd) : undefined;
-  let meta: Record<string, unknown> = { claudeCode: { toolName: toolUse.name } };
-  if (description) meta = withAirMeta(meta, AIR_COMMAND_TITLE_KEY, description);
-  if (toolUse.name === "Agent" || toolUse.name === "Task") {
-    meta = withAirMeta(meta, AIR_SUBAGENT_KEY, true);
-  }
-  if (skillName) {
-    meta = withAirMeta(meta, AIR_SKILL_KEY, {
-      name: skillName,
-      ...(skillPath ? { path: skillPath } : {}),
-    });
-  }
-  return meta as ToolUpdateMeta;
-}
-
 /**
  * Marks the Bash `tool_call_update` whose command detached into the background.
  *
@@ -9427,124 +9310,11 @@ function nonBlankTaskField(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-/** Roots a skill's directory may sit under, relative to the directory the scope resolves to. */
-const SKILL_CONTAINER_DIRS = [".claude/skills", ".agents/skills"] as const;
-
-/**
- * Absolute path of a skill's `SKILL.md`, or `undefined` when none of the known layouts holds one.
- *
- * The `Skill` tool reports only the skill's name, so the file has to be located by probing the layouts skills
- * actually use: project- and user-level `.claude/skills` (plus this repo's `.agents/skills` source of truth), and
- * for a `<prefix>:<name>` spelling either a plugin (`.claude/plugins/<prefix>/skills/<name>`) or a
- * directory-scoped skill (`<prefix>/.claude/skills/<name>`), which share that spelling. Only a path that exists
- * on disk is returned, so a wrong guess costs nothing and clients never render a link to a missing file.
- */
-function resolveSkillPath(skillName: string, cwd?: string): string | undefined {
-  if (!cwd) {
-    return undefined;
-  }
-  const colon = skillName.indexOf(":");
-  const scope = colon < 0 ? undefined : skillName.slice(0, colon);
-  const name = colon < 0 ? skillName : skillName.slice(colon + 1);
-  if (!name) {
-    return undefined;
-  }
-  const candidates: string[] = [];
-  const addCandidates = (base: string) => {
-    for (const container of SKILL_CONTAINER_DIRS) {
-      candidates.push(path.join(base, container, name, "SKILL.md"));
-    }
-  };
-  if (scope) {
-    // A `<prefix>:<name>` skill is either directory-scoped or a plugin's; both spellings look identical.
-    addCandidates(path.join(cwd, scope));
-    candidates.push(path.join(cwd, ".claude/plugins", scope, "skills", name, "SKILL.md"));
-  }
-  addCandidates(cwd);
-  addCandidates(os.homedir());
-  return candidates.find((candidate) => existsSync(candidate));
-}
-
 /** The tool-call field tracker of a session, created on first use. */
 function toolCallFieldsOf(session: {
   toolCallFields?: ToolCallFieldTracker;
 }): ToolCallFieldTracker {
   return (session.toolCallFields ??= new ToolCallFieldTracker());
-}
-
-/** Build the `tool_call` (or, with `refine`, the `tool_call_update`)
- *  notification for a tool_use. Shared by every site that surfaces a tool call:
- *  the streamed tool_use path (first encounter → tool_call, later encounter →
- *  refine) and the permission flow (`ensureToolCallEmitted`), so they can't
- *  drift. The initial `tool_call` carries `status: "pending"` and, for shell tools,
- *  the `terminal_info` _meta that the later `terminal_output`/`terminal_exit`
- *  updates key off of, and the programmatic tool `name` (ACP's tool-call-name
- *  RFD); a refining `tool_call_update` carries none of these. `name` is set
- *  once at first report — on a v1 update, omitting it means "unchanged", and
- *  the tool behind a `toolCallId` never changes. */
-function toolCallNotification(
-  toolUse: { id: string; name: string; input: unknown },
-  rawInput: unknown,
-  supportsTerminalOutput: boolean,
-  cwd?: string,
-  refine = false,
-  supportsDiffPatch = false,
-): SessionNotification["update"] {
-  if (refine) {
-    return {
-      _meta: toolUseMeta(toolUse, cwd),
-      toolCallId: toolUse.id,
-      sessionUpdate: "tool_call_update",
-      rawInput,
-      ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd, supportsDiffPatch),
-    };
-  }
-  return {
-    _meta: {
-      ...toolUseMeta(toolUse, cwd),
-      ...((toolUse.name === "Bash" || toolUse.name === "PowerShell") && supportsTerminalOutput
-        ? { terminal_info: { terminal_id: toolUse.id } }
-        : {}),
-    } satisfies ToolUpdateMeta,
-    toolCallId: toolUse.id,
-    sessionUpdate: "tool_call",
-    name: toolUse.name,
-    rawInput,
-    status: "pending",
-    ...toolInfoFromToolUse(toolUse, supportsTerminalOutput, cwd, supportsDiffPatch),
-  };
-}
-
-/** Refine a pending tool call from the complete top-level fields recovered
- *  from its still-streaming input. Shares `toolInfoFromToolUse` with the
- *  consolidated path but never carries `content`: content built from partial
- *  input is misleading (an Edit missing its `new_string` renders as a pure
- *  deletion) or invalid (a Write diff without `content` lacks the required
- *  `newText`), and the consolidated message supplies it moments later. */
-function streamedInputRefinement(
-  toolUse: { id: string; name: string },
-  input: Record<string, unknown>,
-  supportsTerminalOutput: boolean,
-  cwd?: string,
-): SessionNotification["update"] | undefined {
-  // TodoWrite/Task* never surfaced a tool_call to refine (plan lane).
-  if (!shouldEmitToolCall(toolUse.name)) {
-    return undefined;
-  }
-  const { title, kind, locations } = toolInfoFromToolUse(
-    { ...toolUse, input },
-    supportsTerminalOutput,
-    cwd,
-  );
-  return {
-    _meta: toolUseMeta({ ...toolUse, input }, cwd),
-    toolCallId: toolUse.id,
-    sessionUpdate: "tool_call_update",
-    rawInput: input,
-    title,
-    kind,
-    ...(locations ? { locations } : {}),
-  };
 }
 
 /**
@@ -9571,6 +9341,10 @@ export function toAcpNotifications(
     // tool_call/update decision falls back to `toolUseCache` presence (the
     // historical single-source behavior).
     emittedToolCalls?: Set<string>;
+    // False while the input of a streamed tool_use still streams: the first
+    // tool_call then leaves `rawInput` out, and the consolidated message
+    // sends it once it is complete.
+    inputComplete?: boolean;
     // Remembers the fields sent for each open tool call. When present, a
     // tool_call_update carries only the fields that changed, and an update
     // with nothing new is dropped. Mutated in place.
@@ -9594,14 +9368,7 @@ export function toAcpNotifications(
 ): SessionNotification[] {
   const taskState = options?.taskState ?? new Map();
   const registerHooks = options?.registerHooks !== false;
-  const supportsTerminalOutputDelta =
-    options?.clientCapabilities?._meta?.["terminal_output_delta"] === true;
-  const supportsTerminalOutput =
-    supportsTerminalOutputDelta || options?.clientCapabilities?._meta?.["terminal_output"] === true;
-  const supportsDiffPatch = clientSupportsAirCapability(
-    options?.clientCapabilities,
-    AIR_DIFF_PATCH_CAPABILITY,
-  );
+  const renderer = AcpToolCallRenderer.for(options?.clientCapabilities);
   if (typeof content === "string") {
     if (content.length === 0) {
       return [];
@@ -9718,41 +9485,20 @@ export function toAcpNotifications(
             registerHookCallback(
               chunk.id,
               {
-                onPostToolUseHook: async (toolUseId, toolInput, toolResponse) => {
-                  // Both `Edit` and `Write` produce a structuredPatch in their
-                  // PostToolUse tool_response. For Edit the diff replaces the
-                  // optimistic content built at tool_use time. For Write the
-                  // optimistic content (built from `input.content` alone with
-                  // `oldText: null`) shows "creation" semantics regardless of
-                  // whether the file existed; the structuredPatch from the
-                  // hook lets us emit the real diff for `type: "update"`. The
-                  // helper returns `{}` if the response shape isn't usable. A
-                  // negotiated client gets an exact git patch built from the
-                  // written file, or the standard diff when none can be built.
-                  const editDiff =
-                    toolName === "Edit" || toolName === "Write"
-                      ? ((supportsDiffPatch
-                          ? await patchUpdateFromDiffToolResponse(toolResponse)
-                          : undefined) ?? toolUpdateFromDiffToolResponse(toolResponse))
-                      : {};
-                  // Only the marker fields of the tool_response travel: the
-                  // rest repeats output that the content already carries.
-                  const markers = toolResponseMarkers(toolResponse);
-                  if (!markers && !editDiff.content && !editDiff.locations) return;
-                  const update: SessionNotification["update"] = {
-                    _meta: {
-                      claudeCode: {
-                        ...(markers ? { toolResponse: markers } : {}),
-                        toolName,
-                        ...(options?.parentToolUseId
-                          ? { parentToolUseId: options.parentToolUseId }
-                          : {}),
-                      },
-                    } satisfies ToolUpdateMeta,
-                    toolCallId: toolUseId,
-                    sessionUpdate: "tool_call_update",
-                    ...editDiff,
-                  };
+                onPostToolUseHook: async (toolUseId, _toolInput, toolResponse) => {
+                  // The final diff of an Edit or a Write replaces the
+                  // optimistic content built from the input. Only the marker
+                  // fields of the tool_response travel: the rest repeats
+                  // output that the content already carries.
+                  const update = await renderer.hookResult(
+                    { id: toolUseId, name: toolName },
+                    toolResponse,
+                    options?.cwd,
+                  );
+                  if (!update) return;
+                  if (options?.parentToolUseId) {
+                    stampParentToolUseId(update, options.parentToolUseId);
+                  }
                   // The final result may replace a pinned approval patch.
                   if (
                     options?.toolCallFields &&
@@ -9760,10 +9506,7 @@ export function toAcpNotifications(
                   ) {
                     return;
                   }
-                  await client.sessionUpdate({
-                    sessionId,
-                    update,
-                  });
+                  await client.sessionUpdate({ sessionId, update });
                 },
                 onRelease: () => options?.toolCallFields?.finishHook(hookToolCallId),
               },
@@ -9777,6 +9520,7 @@ export function toAcpNotifications(
           } catch {
             // ignore if we can't turn it to JSON
           }
+          const toolUse = { id: chunk.id, name: chunk.name, input: rawInput };
 
           // Emit a `tool_call` only the first time this id surfaces to the
           // client; afterwards refine it with a `tool_call_update`. The first
@@ -9788,30 +9532,19 @@ export function toAcpNotifications(
           const alreadyEmitted = emittedToolCalls ? emittedToolCalls.has(chunk.id) : alreadyCached;
           emittedToolCalls?.add(chunk.id);
 
-          if (alreadyEmitted) {
-            // Already surfaced (full assistant message after streaming, or a
-            // permission request emitted it first) — refine with a
-            // tool_call_update rather than emitting a duplicate tool_call.
-            update = toolCallNotification(
-              chunk,
-              rawInput,
-              supportsTerminalOutput,
-              options?.cwd,
-              true,
-              supportsDiffPatch,
-            );
-          } else {
-            // First surface (streaming content_block_start or replay) — send as
-            // tool_call (with terminal_info for Bash).
-            update = toolCallNotification(
-              chunk,
-              rawInput,
-              supportsTerminalOutput,
-              options?.cwd,
-              false,
-              supportsDiffPatch,
-            );
-          }
+          // A permission request surfaced the tool call with its complete
+          // input. The empty input at the stream start has nothing to add.
+          if (alreadyEmitted && options?.inputComplete === false) break;
+          update = alreadyEmitted
+            ? // Already surfaced (full assistant message after streaming, or a
+              // permission request emitted it first): refine it with the
+              // complete input.
+              renderer.refinement(toolUse, options?.cwd)
+            : // First surface (streaming content_block_start or replay).
+              renderer.toolCall(toolUse, {
+                cwd: options?.cwd,
+                inputComplete: options?.inputComplete,
+              });
         }
         break;
       }
@@ -9938,65 +9671,20 @@ export function toAcpNotifications(
             };
           }
         } else if (toolUse.name !== "TodoWrite") {
-          const { _meta: toolMeta, ...toolUpdate } = toolUpdateFromToolResult(
-            chunk,
-            toolUseCache[chunk.tool_use_id],
-            supportsTerminalOutput,
-            toolUseResult,
-            supportsTerminalOutputDelta,
-          );
-
-          const terminalOutput = toolMeta?.terminal_output_delta ?? toolMeta?.terminal_output;
-          const terminalOutputKey = toolMeta?.terminal_output_delta
-            ? "terminal_output_delta"
-            : "terminal_output";
-
-          // When terminal output is supported, send its payload as a
-          // separate notification to match codex-acp's streaming lifecycle:
-          //   1. tool_call       → _meta.terminal_info  (already sent above)
-          //   2. tool_call_update → terminal output      (sent here)
-          //   3. tool_call_update → _meta.terminal_exit  (sent below with status)
-          if (terminalOutput) {
-            output.push({
-              sessionId,
-              update: {
-                _meta: {
-                  [terminalOutputKey]: terminalOutput,
-                  ...(options?.parentToolUseId
-                    ? { claudeCode: { parentToolUseId: options.parentToolUseId } }
-                    : {}),
-                },
-                toolCallId: chunk.tool_use_id,
-                sessionUpdate: "tool_call_update" as const,
-              },
-            });
+          // A command sends its output first, then the exit and the status.
+          const [finalUpdate, ...rest] = renderer
+            .result(toolUse, chunk as Parameters<AcpToolCallRenderer["result"]>[1], {
+              structured: toolUseResult,
+              nonExecution: nonExecution as Record<string, unknown> | undefined,
+            })
+            .reverse();
+          for (const outputUpdate of rest.reverse()) {
+            if (options?.parentToolUseId) {
+              stampParentToolUseId(outputUpdate, options.parentToolUseId);
+            }
+            output.push({ sessionId, update: outputUpdate });
           }
-
-          update = {
-            _meta: {
-              claudeCode: {
-                toolName: toolUse.name,
-                ...(nonExecution ?? {}),
-              },
-              ...(toolMeta?.terminal_exit ? { terminal_exit: toolMeta.terminal_exit } : {}),
-            } satisfies ToolUpdateMeta,
-            toolCallId: chunk.tool_use_id,
-            sessionUpdate: "tool_call_update",
-            status: "is_error" in chunk && chunk.is_error ? "failed" : "completed",
-            // The output travels once. The terminal output or the content
-            // already carries it, so rawOutput would repeat it and let a client
-            // render it twice. The content drops only model-directed text
-            // (system reminders, the Agent trailer), which the client does not
-            // show. rawOutput stays for a result without content, for example
-            // the confirmation text of an Edit or an ExitPlanMode plan.
-            // ExitPlanMode keeps rawOutput: clients read the unfenced
-            // explanation of a rejected plan there.
-            ...(terminalOutput ||
-            (toolUpdate.content !== undefined && toolUse.name !== "ExitPlanMode")
-              ? {}
-              : { rawOutput: exitPlanModeRawOutput(toolUse.name, chunk.content) }),
-            ...toolUpdate,
-          };
+          update = finalUpdate;
         }
         // The tool_use is fully resolved now — drop it so a long session doesn't
         // retain every tool call. The PostToolUse hook (Edit/Write diffs) closes
@@ -10113,15 +9801,12 @@ export function streamEventToAcpNotifications(
           emittedThroughComma: -1,
         });
       }
-      return toAcpNotifications(
-        [block],
-        "assistant",
-        sessionId,
-        toolUseCache,
-        client,
-        logger,
-        forwardedOptions,
-      );
+      // The input of a streamed tool_use starts empty and streams after this
+      // event, so the tool_call waits for the complete input.
+      return toAcpNotifications([block], "assistant", sessionId, toolUseCache, client, logger, {
+        ...forwardedOptions,
+        inputComplete: false,
+      });
     }
     case "content_block_delta": {
       if (event.delta.type === "input_json_delta") {
@@ -10146,15 +9831,11 @@ export function streamEventToAcpNotifications(
           streamedInput.partialJson.slice(0, streamedInput.lastTopLevelComma),
         );
         if (!input) return [];
-        const supportsTerminalOutput =
-          options?.clientCapabilities?._meta?.["terminal_output"] === true;
-        const update = streamedInputRefinement(
-          streamedInput,
-          input,
-          supportsTerminalOutput,
-          options?.cwd,
-        );
-        if (!update) return [];
+        // TodoWrite and the Task* tools never surfaced a tool_call to refine.
+        if (!shouldEmitToolCall(streamedInput.name)) return [];
+        const update: SessionNotification["update"] = AcpToolCallRenderer.for(
+          options?.clientCapabilities,
+        ).partialRefinement(streamedInput, input, options?.cwd);
         if (message.parent_tool_use_id) {
           update._meta = {
             ...update._meta,

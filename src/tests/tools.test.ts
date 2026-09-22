@@ -3820,10 +3820,9 @@ describe("NotebookEdit", () => {
       { registerHooks: false },
     );
 
-    expect(notifications[0].update).toMatchObject({
-      status: "completed",
-      content: [{ type: "content", content: { type: "text", text: "```\nx = 1\n```" } }],
-    });
+    // The tool call already shows the cell source: the result sends only the status.
+    expect(notifications[0].update).toMatchObject({ status: "completed" });
+    expect(notifications[0].update).not.toHaveProperty("content");
     expect(notifications[0].update).not.toHaveProperty("rawOutput");
   });
 });

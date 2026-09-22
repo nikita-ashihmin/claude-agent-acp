@@ -10,7 +10,7 @@ import {
   toAcpNotifications,
   ToolUseCache,
 } from "../acp-agent.js";
-import { ToolCallFieldTracker } from "../tool-call-fields.js";
+import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
 import { createPostToolUseHook } from "../tools.js";
 
 const logger = { log: () => {}, error: () => {} };
@@ -205,12 +205,14 @@ describe("tool call refinements", () => {
       delta: { type: "input_json_delta", partial_json: '"glob":"*.ts",' },
     });
 
-    expect(first[0].update).toMatchObject({ title: 'grep "todo"', rawInput: { pattern: "todo" } });
+    // No rawInput travels until the input is complete.
+    expect(first[0].update).toMatchObject({ title: 'grep "todo"' });
+    expect(first[0].update).not.toHaveProperty("rawInput");
     expect(first[0].update).not.toHaveProperty("kind");
     expect(second[0].update).toMatchObject({
       title: 'grep --include="*.ts" "todo"',
-      rawInput: { pattern: "todo", glob: "*.ts" },
     });
+    expect(second[0].update).not.toHaveProperty("rawInput");
     expect(second[0].update).not.toHaveProperty("kind");
   });
 
@@ -263,7 +265,9 @@ describe("tool call refinements", () => {
       originalFile: null,
     });
 
-    expect(JSON.stringify(call).split("export const big").length - 1).toBe(200);
+    // The diff holds the file text once. rawInput leaves it out.
+    expect(JSON.stringify(call).split("export const big").length - 1).toBe(100);
+    expect((call[0].update as any).rawInput).toEqual({ file_path: filePath });
     expect(refine).toEqual([]);
     expect(result[0].update).not.toHaveProperty("content");
     // The hook builds the same creation patch, so it has nothing new to send.

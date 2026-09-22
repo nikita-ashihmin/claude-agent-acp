@@ -3,6 +3,10 @@ export const AIR_ASYNC_TASKS_CAPABILITY = "asyncTasks";
 export const AIR_SESSION_FAILURE_CAPABILITY = "sessionFailure";
 export const AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY = "recommendedValue";
 export const AIR_DIFF_PATCH_CAPABILITY = "diffPatch";
+/** AIR renders `rawInput` itself and needs no display copy of the input. */
+export const AIR_RAW_INPUT_RENDERING_CAPABILITY = "rawInputRendering";
+/** AIR appends the streamed text of a plan. */
+export const AIR_PLAN_CONTENT_DELTA_CAPABILITY = "planContentDelta";
 
 /** The `_meta.jetbrains.air` keys that the ACP tool call contract defines. */
 export const AIR_COMMAND_TITLE_KEY = "commandTitle";
@@ -58,16 +62,6 @@ export function airExtensionMeta(meta: unknown): Record<string, unknown> | undef
   return air && typeof air === "object" && !Array.isArray(air)
     ? (air as Record<string, unknown>)
     : undefined;
-}
-
-/**
- * Whether the peer is the JetBrains AIR client.
- *
- * AIR sends `_meta.jetbrains.air` in its client capabilities. The object
- * alone decides: AIR is not released yet, so there is no older AIR shape.
- */
-export function isAirClient(capabilities: unknown): boolean {
-  return airExtensionMeta(asRecord(capabilities)._meta) !== undefined;
 }
 
 /**

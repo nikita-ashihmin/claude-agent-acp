@@ -75,20 +75,19 @@ with `Reason: `. The SDK `description` operation subtitle is not copied there.
 
 ## Tool-call presentation
 
-For JetBrains AIR, the request `toolCall` carries only `toolCallId`, `title`, and `rawInput`, as the
-[AIR client profile](air-client-profile.md) defines. The client already holds the rest of the tool
-call. For every other client, the permission request carries the same standard ACP tool information
-used for normal tool updates:
+The request `toolCall` carries `toolCallId`, `title`, and `rawInput`, as the
+[ACP tool call contract](acp-tool-call-contract.md) defines. The client already holds the rest of the
+tool call, because the adapter emits the `tool_call` before the request. The request also carries
+`content` when it shows something new: the exact preview patch of a negotiated `diffPatch` client.
+The fields come from the same tool reporter as the normal tool updates:
 
-- `name` is the SDK tool name (for example `Read` or `mcp__server__tool`), matching the standard
-  `name` field on the initial `tool_call` update;
-- `kind`, `title`, `content`, and `locations` come from `toolInfoFromToolUse`;
-- `status` is `pending`;
-- `rawInput` is the original SDK input object;
-- `blockedPath` is appended to `locations` when it is valid and not already present;
-- subagent calls include `_meta.claudeCode.parentToolUseId` on the tool call;
-- Sandbox Network and Computer Use requests synthesize JSON content when the normal renderer has no
-  content.
+- `title` is the standard tool-call title. A Sandbox Network request uses the host, and a Computer
+  Use request uses the display name;
+- `rawInput` is the SDK input object. An Edit or a Write leaves out the file text, because the diff
+  in the tool call holds it;
+- `content` is present only with an exact preview patch;
+- `locations` is present only when a valid `blockedPath` is not a location of the tool call;
+- `_meta.claudeCode.mcpServer` names the MCP server of an `mcp__*` tool.
 
 Compact text removes control characters, collapses whitespace where appropriate, and enforces length
 limits. Invalid optional presentation text is omitted instead of being truncated into misleading UI.

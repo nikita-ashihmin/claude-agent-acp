@@ -1,3 +1,4 @@
+import { ClientCapabilities } from "../tool-calls/client-capabilities.js";
 import { describe, expect, it } from "vitest";
 import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
 import { normalizeDurablePermissionChangeSet } from "../permissions/normalization.js";
@@ -108,7 +109,7 @@ describe("Claude permission ACP v1 presentation", () => {
       toolName: "Edit",
       input: { file_path: "/work/file.ts", old_string: "old", new_string: "new" },
       toolUseID: "tool-edit",
-      supportsDiffPatch: true,
+      capabilities: new ClientCapabilities(false, false, true),
       previewContent,
     });
 
@@ -170,16 +171,12 @@ describe("Claude permission ACP v1 presentation", () => {
         air: { version: 1, permission: { description: "Reason: Needed to verify the change." } },
       },
     });
-    expect(presentation.toolCall).toMatchObject({
+    // The client holds the rest of the tool call already.
+    expect(presentation.toolCall).toEqual({
       toolCallId: "tool-1",
-      name: "Bash",
-      kind: "execute",
-      status: "pending",
+      title: "npm test",
       rawInput: input,
     });
-    expect(presentation.toolCall.content).toEqual([
-      { type: "content", content: { type: "text", text: "Run the tests" } },
-    ]);
     expect(presentation.toolCall.rawInput).toBe(input);
   });
 
@@ -237,7 +234,7 @@ describe("Claude permission ACP v1 presentation", () => {
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
-        supportsTerminalOutput: true,
+        capabilities: new ClientCapabilities(true),
       });
 
       expect(presentation._meta).toEqual({
@@ -262,8 +259,9 @@ describe("Claude permission ACP v1 presentation", () => {
         air: { version: 1, permission: { version: 1, title: "Fetch https://example.com/docs" } },
       },
     });
-    expect(presentation.toolCall).toMatchObject({
-      kind: "fetch",
+    expect(presentation.toolCall).toEqual({
+      toolCallId: "tool-web-fetch",
+      title: "Fetch https://example.com/docs",
       rawInput: input,
     });
     expect(presentation.toolCall.rawInput).toBe(input);
@@ -422,7 +420,11 @@ describe("Claude permission ACP v1 presentation", () => {
       input: { target: "staging" },
       toolUseID: "tool-5",
     });
-    expect(presentation.toolCall).toMatchObject({ kind: "other", name: "mcp__demo__deploy" });
+    expect(presentation.toolCall).toEqual({
+      toolCallId: "tool-5",
+      title: "mcp__demo__deploy",
+      rawInput: { target: "staging" },
+    });
     expect(presentation._meta).toEqual({
       jetbrains: { air: { version: 1, permission: { version: 1, title: "mcp__demo__deploy" } } },
     });

@@ -1,3 +1,4 @@
+import { ClientCapabilities } from "../tool-calls/client-capabilities.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -159,20 +160,20 @@ describe("approval patch previews", () => {
     expect(patch).toContain("-b\n\\ No newline at end of file\n+c\n\\ No newline at end of file\n");
   });
 
-  it("keeps the standard tool-call content when there is no preview", async () => {
+  it("sends no content when there is no preview", async () => {
     const missing = await temporaryFile();
     const input = { file_path: missing, old_string: "old", new_string: "new" };
     const presentation = buildClaudePermissionPresentation({
       toolName: "Edit",
       input,
       toolUseID: "tool-edit",
-      supportsDiffPatch: true,
+      capabilities: new ClientCapabilities(false, false, true),
       previewContent: await previewPatchContent("Edit", input),
     });
 
-    expect(presentation.toolCall.content).toEqual([
-      { type: "diff", path: missing, oldText: "old", newText: "new" },
-    ]);
+    // The tool_call already carries the standard diff.
+    expect(presentation.toolCall.content).toBeUndefined();
+    expect(presentation.toolCall.rawInput).toEqual({ file_path: missing });
   });
 });
 

@@ -1,0 +1,297 @@
+import { describe, expect, it } from "vitest";
+import type { ClientCapabilities } from "@agentclientprotocol/sdk";
+import { AcpClient, toAcpNotifications, ToolUseCache } from "../acp-agent.js";
+import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client-capabilities.js";
+
+const logger = { log: () => {}, error: () => {} };
+
+/** A Zed-like client: terminal snapshots, no AIR capabilities. */
+const zed: ClientCapabilities = { _meta: { terminal_output: true } };
+
+/** AIR: terminal deltas, and it renders rawInput itself. */
+const air: ClientCapabilities = {
+  _meta: {
+    terminal_output: true,
+    terminal_output_delta: true,
+    jetbrains: {
+      air: { version: 1, capabilities: ["diffPatch", "rawInputRendering", "planContentDelta"] },
+    },
+  },
+};
+
+/** A client with neither terminal nor AIR capabilities. */
+const plain: ClientCapabilities = {};
+
+function report(
+  capabilities: ClientCapabilities,
+  name: string,
+  input: Record<string, unknown>,
+  result?: { content: unknown; is_error?: boolean; structured?: unknown },
+) {
+  const cache: ToolUseCache = {};
+  const map = (chunk: unknown, role: "assistant" | "user", toolUseResult?: unknown) =>
+    toAcpNotifications([chunk] as any, role, "s", cache, {} as AcpClient, logger, {
+      registerHooks: false,
+      clientCapabilities: capabilities,
+      cwd: "/work",
+      toolUseResult,
+    }).map((notification) => notification.update as any);
+  const call = map({ type: "tool_use", id: "t", name, input }, "assistant");
+  const updates = result
+    ? map(
+        {
+          type: "tool_result",
+          tool_use_id: "t",
+          content: result.content,
+          ...(result.is_error ? { is_error: true } : {}),
+        },
+        "user",
+        result.structured,
+      )
+    : [];
+  return { call: call[0], updates };
+}
+
+describe("ClientCapabilities", () => {
+  it("reads the AIR capabilities only from _meta.jetbrains.air.capabilities", () => {
+    expect(ToolCallCapabilities.from(air)).toMatchObject({
+      terminalOutput: true,
+      terminalOutputDelta: true,
+      diffPatch: true,
+      air: { rawInputRendering: true, planContentDelta: true },
+    });
+    expect(
+      ToolCallCapabilities.from({ _meta: { rawInputRendering: true } } as ClientCapabilities).air,
+    ).toEqual({ rawInputRendering: false, planContentDelta: false });
+  });
+});
+
+describe("the ACP tool call contract", () => {
+  describe("Bash", () => {
+    const input = { command: "ls", description: "List files" };
+
+    it("keeps the Zed terminal conventions", () => {
+      const { call, updates } = report(zed, "Bash", input, { content: "a\nb" });
+      expect(call).toMatchObject({
+        title: "ls",
+        kind: "execute",
+        content: [{ type: "terminal", terminalId: "t" }],
+        rawInput: input,
+        _meta: {
+          terminal_info: { terminal_id: "t" },
+          jetbrains: { air: { commandTitle: "List files" } },
+        },
+      });
+      expect(updates).toEqual([
+        {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "t",
+          _meta: { terminal_output: { terminal_id: "t", data: "a\nb" } },
+        },
+        {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "t",
+          status: "completed",
+          _meta: {
+            claudeCode: { toolName: "Bash" },
+            terminal_exit: { terminal_id: "t", exit_code: 0, signal: null },
+          },
+        },
+      ]);
+    });
+
+    it("appends output deltas for AIR", () => {
+      const { updates } = report(air, "Bash", input, { content: "a" });
+      expect(updates[0]._meta).toEqual({
+        terminal_output_delta: { terminal_id: "t", data: "a" },
+      });
+    });
+
+    it("shows one display copy of the description without a terminal", () => {
+      const { call, updates } = report(plain, "Bash", input, { content: "a" });
+      expect(call.content).toEqual([
+        { type: "content", content: { type: "text", text: "List files" } },
+      ]);
+      expect(updates[0].content).toEqual([
+        { type: "content", content: { type: "text", text: "```console\na\n```" } },
+      ]);
+      expect(updates[0]).not.toHaveProperty("rawOutput");
+    });
+  });
+
+  it("sends the Read text once, in content", () => {
+    const { call, updates } = report(zed, "Read", { file_path: "/work/a.ts" }, { content: "x" });
+    expect(call).toMatchObject({ title: "Read a.ts", kind: "read", content: [] });
+    expect(updates[0].content).toEqual([
+      { type: "content", content: { type: "text", text: "```\nx\n```" } },
+    ]);
+    expect(updates[0]).not.toHaveProperty("rawOutput");
+  });
+
+  it("keeps the Write file text only in the diff", () => {
+    const input = { file_path: "/work/a.ts", content: "text" };
+    for (const capabilities of [zed, plain]) {
+      const { call } = report(capabilities, "Write", input);
+      expect(call.rawInput).toEqual({ file_path: "/work/a.ts" });
+      expect(call.content).toEqual([
+        { type: "diff", path: "/work/a.ts", oldText: null, newText: "text" },
+      ]);
+    }
+  });
+
+  it("keeps the Edit text only in the diff", () => {
+    const input = { file_path: "/work/a.ts", old_string: "a", new_string: "b", replace_all: true };
+    const { call, updates } = report(zed, "Edit", input, { content: "The file was updated" });
+    expect(call.rawInput).toEqual({ file_path: "/work/a.ts", replace_all: true });
+    expect(call.content).toEqual([
+      { type: "diff", path: "/work/a.ts", oldText: "a", newText: "b" },
+    ]);
+    // The confirmation has no display form.
+    expect(updates[0].rawOutput).toBe("The file was updated");
+  });
+
+  it("keeps the NotebookEdit source in rawInput with one display copy for Zed", () => {
+    const input = { notebook_path: "/work/a.ipynb", cell_id: "c", new_source: "x = 1" };
+    const zedReport = report(zed, "NotebookEdit", input, { content: "Updated c with x = 1" });
+    expect(zedReport.call.rawInput).toEqual(input);
+    expect(zedReport.call.content).toEqual([
+      { type: "content", content: { type: "text", text: "```\nx = 1\n```" } },
+    ]);
+    expect(zedReport.updates[0]).not.toHaveProperty("content");
+    expect(zedReport.updates[0]).not.toHaveProperty("rawOutput");
+
+    const airReport = report(air, "NotebookEdit", input);
+    expect(airReport.call.content).toEqual([]);
+    expect(airReport.call.rawInput).toEqual(input);
+  });
+
+  it("reports Grep and Glob hits as content", () => {
+    const grep = report(zed, "Grep", { pattern: "todo", path: "src" }, { content: "a.ts:1" });
+    expect(grep.call.title).toBe('grep "todo" src');
+    expect(grep.updates[0].content).toEqual([
+      { type: "content", content: { type: "text", text: "a.ts:1" } },
+    ]);
+    const glob = report(zed, "Glob", { pattern: "*.ts" }, { content: "a.ts" });
+    expect(glob.call.title).toBe("Find `*.ts`");
+    expect(glob.updates[0]).not.toHaveProperty("rawOutput");
+  });
+
+  it("shows the WebFetch prompt once to Zed and never to AIR", () => {
+    const input = { url: "https://e.com", prompt: "Summarize" };
+    expect(report(zed, "WebFetch", input).call.content).toEqual([
+      { type: "content", content: { type: "text", text: "Summarize" } },
+    ]);
+    expect(report(air, "WebFetch", input).call.content).toEqual([]);
+  });
+
+  it("reports WebSearch hits from the structured result", () => {
+    const { updates } = report(
+      zed,
+      "WebSearch",
+      { query: "acp" },
+      {
+        content: "Web search results: ...",
+        structured: { results: [{ content: [{ title: "ACP", url: "https://acp" }] }] },
+      },
+    );
+    expect(updates[0].content).toEqual([
+      { type: "content", content: { type: "text", text: "ACP (https://acp)" } },
+    ]);
+  });
+
+  it("marks an Agent as a subagent and shows its prompt only to Zed", () => {
+    const input = { description: "Explore", prompt: "Inspect the project" };
+    const zedCall = report(zed, "Agent", input).call;
+    expect(zedCall).toMatchObject({
+      title: "Explore",
+      content: [{ type: "content", content: { type: "text", text: "Inspect the project" } }],
+      _meta: { claudeCode: { toolName: "Agent" }, jetbrains: { air: { subagent: true } } },
+    });
+    expect(zedCall._meta.claudeCode).not.toHaveProperty("subagent");
+    expect(report(air, "Task", input).call.content).toEqual([]);
+  });
+
+  it("reports TodoWrite as a plan, not as a tool call", () => {
+    const { call } = report(zed, "TodoWrite", {
+      todos: [{ content: "Test", status: "pending", activeForm: "Testing" }],
+    });
+    expect(call).toEqual({
+      sessionUpdate: "plan",
+      entries: [{ content: "Test", status: "pending", priority: "medium" }],
+    });
+  });
+
+  describe("ExitPlanMode", () => {
+    const input = { plan: "1. Do it" };
+
+    it("shows the plan once and sends no approval text", () => {
+      const { call, updates } = report(zed, "ExitPlanMode", input, {
+        content: "User has approved your plan.\n\n## Approved Plan:\n1. Do it",
+      });
+      expect(call.content).toEqual([
+        { type: "content", content: { type: "text", text: "1. Do it" } },
+      ]);
+      expect(updates[0]).toMatchObject({ status: "completed", title: "Exited Plan Mode" });
+      expect(updates[0]).not.toHaveProperty("rawOutput");
+      expect(updates[0]).not.toHaveProperty("content");
+      expect(report(air, "ExitPlanMode", input).call.content).toEqual([]);
+    });
+
+    it("sends the rejection reason once, unfenced, in rawOutput", () => {
+      const { updates } = report(zed, "ExitPlanMode", input, {
+        content: "```\nKeep the tests\n```",
+        is_error: true,
+      });
+      expect(updates[0]).toMatchObject({ status: "failed", rawOutput: "Keep the tests" });
+      expect(updates[0]).not.toHaveProperty("content");
+    });
+  });
+
+  it("keeps the AskUserQuestion question out of the title", () => {
+    const input = { questions: [{ question: "Which mode?", header: "Mode", options: [] }] };
+    const { call } = report(zed, "AskUserQuestion", input);
+    expect(call.title).toBe("Asking for your input");
+    expect(call.content).toEqual([
+      { type: "content", content: { type: "text", text: "Which mode?" } },
+    ]);
+    expect(report(air, "AskUserQuestion", input).call.content).toEqual([]);
+  });
+
+  it("sends the Skill under jetbrains.air.skill and its confirmation as rawOutput", () => {
+    const { call, updates } = report(
+      zed,
+      "Skill",
+      { skill: "commits" },
+      { content: "Launching skill: commits" },
+    );
+    expect(call._meta).toEqual({
+      claudeCode: { toolName: "Skill" },
+      jetbrains: { air: { version: 1, skill: { name: "commits" } } },
+    });
+    expect(updates[0].rawOutput).toBe("Launching skill: commits");
+  });
+
+  it("marks an MCP tool call and shows its text result once", () => {
+    const { call, updates } = report(
+      zed,
+      "mcp__github__list",
+      { repo: "acp" },
+      {
+        content: [{ type: "text", text: "3 issues" }],
+      },
+    );
+    expect(call._meta).toMatchObject({ is_mcp_tool_call: true });
+    expect(updates[0].content).toEqual([
+      { type: "content", content: { type: "text", text: "3 issues" } },
+    ]);
+    expect(updates[0]).not.toHaveProperty("rawOutput");
+  });
+
+  it.each(["TaskOutput", "TaskStop"])("reports %s through the generic reporter", (name) => {
+    const { call, updates } = report(zed, name, { task_id: "b1" }, { content: "done" });
+    expect(call).toMatchObject({ title: name, kind: "other", content: [] });
+    expect(updates[0].content).toEqual([
+      { type: "content", content: { type: "text", text: "done" } },
+    ]);
+  });
+});

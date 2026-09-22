@@ -3714,10 +3714,11 @@ describe("permission request cancellation", () => {
         },
       },
     });
-    expect(request?.toolCall).toMatchObject({
-      kind: "read",
+    // The request repeats nothing that the tool call has. The blocked path is new.
+    expect(request?.toolCall).toEqual({
+      toolCallId: "tool-1",
+      title: "Read /outside/a.ts",
       rawInput: input,
-      locations: [{ path: "/outside/a.ts", line: 1 }],
     });
     expect(request?.toolCall.rawInput).toBe(input);
     expect(result?.behavior === "allow" && result.updatedInput).toBe(input);
@@ -4416,9 +4417,8 @@ describe("subagent permission attribution (issue #851)", () => {
       _meta: { claudeCode: { parentToolUseId: "toolu_parent" } },
     });
     expect(requests[0].sessionId).toBe("session-1");
-    expect(requests[0].toolCall._meta).toMatchObject({
-      claudeCode: { toolName: "Bash", parentToolUseId: "toolu_parent" },
-    });
+    // The tool_call carries the parent. The request does not repeat it.
+    expect(requests[0].toolCall._meta).toBeUndefined();
   });
 
   it("forwards the MCP server provenance on the permission request", async () => {
@@ -4432,10 +4432,7 @@ describe("subagent permission attribution (issue #851)", () => {
     } as any);
 
     expect(requests[0].toolCall._meta).toEqual({
-      claudeCode: {
-        toolName: "mcp__github__create_issue",
-        mcpServer: { name: "github", source: "project" },
-      },
+      claudeCode: { mcpServer: { name: "github", source: "project" } },
     });
   });
 
@@ -18177,9 +18174,10 @@ describe("streamEventToAcpNotifications", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "toolu_read",
       title: "Read src/ZodiacList.tsx",
-      rawInput: { file_path: "/Users/test/project/src/ZodiacList.tsx" },
       locations: [{ path: "/Users/test/project/src/ZodiacList.tsx", line: 1 }],
     });
+    // The input is not complete yet, so no rawInput travels.
+    expect(pathAvailable[0].update).not.toHaveProperty("rawInput");
     expect(streamedToolInputs.size).toBe(1);
 
     const completed = streamEventToAcpNotifications(
@@ -18284,10 +18282,10 @@ describe("streamEventToAcpNotifications", () => {
         sessionUpdate: "tool_call_update",
         toolCallId: "toolu_partial",
         title: "Write src/write.ts",
-        rawInput: { file_path: "/Users/test/project/src/write.ts" },
         locations: [{ path: "/Users/test/project/src/write.ts" }],
       });
       expect(refined[0].update).not.toHaveProperty("content");
+      expect(refined[0].update).not.toHaveProperty("rawInput");
     });
 
     it("refines a pending Write from the consolidated block after complete streamed input", () => {
@@ -18330,10 +18328,8 @@ describe("streamEventToAcpNotifications", () => {
         sessionUpdate: "tool_call_update",
         toolCallId: "toolu_partial",
         title: "Write src/write.ts",
-        rawInput: {
-          file_path: "/Users/test/project/src/write.ts",
-          content: "hello",
-        },
+        // The diff holds the file text, so rawInput leaves it out.
+        rawInput: { file_path: "/Users/test/project/src/write.ts" },
         locations: [{ path: "/Users/test/project/src/write.ts" }],
       });
     });
@@ -18476,8 +18472,9 @@ describe("streamEventToAcpNotifications", () => {
         sessionUpdate: "tool_call_update",
         toolCallId: "toolu_partial",
         title: testCase.title,
-        rawInput: testCase.rawInput,
       });
+      // The input is not complete yet, so no rawInput travels.
+      expect(refined[0].update).not.toHaveProperty("rawInput");
       if ("metaTitle" in testCase) {
         expect(refined[0].update._meta).toMatchObject({
           jetbrains: { air: { commandTitle: testCase.metaTitle } },
@@ -18562,7 +18559,7 @@ describe("streamEventToAcpNotifications", () => {
         partialJson: '{"timeout":100,"command":',
       });
       expect(delimited.refined).toHaveLength(1);
-      expect(delimited.refined[0].update).toMatchObject({ rawInput: { timeout: 100 } });
+      expect(delimited.refined[0].update).not.toHaveProperty("rawInput");
     });
 
     it.each([
@@ -18582,10 +18579,14 @@ describe("streamEventToAcpNotifications", () => {
         partialJson: '{"options":{"limit":5,"enabled":true},"command":',
         rawInput: { options: { limit: 5, enabled: true } },
       },
-    ])("recovers a completed $label value at a field boundary", ({ partialJson, rawInput }) => {
+    ])("recovers a completed $label value at a field boundary", ({ partialJson }) => {
       const { refined } = refineFromPartialInput({ name: "CustomTool", partialJson });
       expect(refined).toHaveLength(1);
-      expect(refined[0].update).toMatchObject({ sessionUpdate: "tool_call_update", rawInput });
+      expect(refined[0].update).toMatchObject({
+        sessionUpdate: "tool_call_update",
+        title: "CustomTool",
+      });
+      expect(refined[0].update).not.toHaveProperty("rawInput");
     });
 
     it("survives a ping keep-alive arriving mid-stream", () => {
@@ -18633,7 +18634,7 @@ describe("streamEventToAcpNotifications", () => {
       expect(refined[0].update).toMatchObject({
         sessionUpdate: "tool_call_update",
         toolCallId: "toolu_ping",
-        rawInput: { command: "sleep 900" },
+        title: "sleep 900",
       });
     });
 
