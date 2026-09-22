@@ -18,6 +18,7 @@ import {
   FileWriteInput,
   GlobInput,
   GrepInput,
+  NotebookEditInput,
   ReportFindingsInput,
   TaskCreateInput,
   TaskCreateOutput,
@@ -260,6 +261,26 @@ export function toolInfoFromToolUse(
         kind: "edit",
         content,
         locations: input?.file_path ? [{ path: input.file_path }] : [],
+      };
+    }
+
+    case "NotebookEdit": {
+      const input = toolUse.input as Partial<NotebookEditInput> | undefined;
+      const displayPath = input?.notebook_path
+        ? toDisplayPath(input.notebook_path, cwd)
+        : undefined;
+      const cell = input?.cell_id ? ` ${input.cell_id}` : "";
+      const verb =
+        input?.edit_mode === "insert"
+          ? "Insert"
+          : input?.edit_mode === "delete"
+            ? "Delete"
+            : "Edit";
+      return {
+        title: displayPath ? `${verb} cell${cell} in ${displayPath}` : "Edit notebook",
+        kind: "edit",
+        content: notebookEditContent(input),
+        locations: input?.notebook_path ? [{ path: input.notebook_path }] : [],
       };
     }
 
@@ -506,6 +527,17 @@ export function toolInfoFromToolUse(
         content: [],
       };
   }
+}
+
+/**
+ * The content of a NotebookEdit tool call: the new cell source as a code
+ * block. A cell deletion has no content. ACP has no notebook diff, and a
+ * `diff` block would name the `.ipynb` file with cell text instead of file
+ * text.
+ */
+function notebookEditContent(input: Partial<NotebookEditInput> | undefined): ToolCallContent[] {
+  if (input?.edit_mode === "delete" || typeof input?.new_source !== "string") return [];
+  return [{ type: "content", content: { type: "text", text: markdownEscape(input.new_source) } }];
 }
 
 /**
@@ -949,6 +981,14 @@ export function toolUpdateFromToolResult(
     case "Edit": // Edit is handled in hooks
     case "Write": {
       return {};
+    }
+
+    case "NotebookEdit": {
+      // The result text repeats the new cell source. The tool call already
+      // shows that source, so return the same content: the update then sends
+      // no rawOutput, and the field tracker drops the unchanged content.
+      const content = notebookEditContent(toolUse.input as Partial<NotebookEditInput>);
+      return content.length > 0 ? { content } : rawContentUpdate();
     }
 
     case "ExitPlanMode": {

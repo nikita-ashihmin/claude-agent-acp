@@ -3757,3 +3757,71 @@ describe("Skill tool rendering", () => {
     });
   });
 });
+
+describe("NotebookEdit", () => {
+  const mockLogger: Logger = { log: () => {}, error: () => {} };
+
+  it("shows the notebook, the cell, and the new source", () => {
+    expect(
+      toolInfoFromToolUse(
+        {
+          name: "NotebookEdit",
+          input: {
+            notebook_path: "/work/analysis.ipynb",
+            cell_id: "cell-2",
+            new_source: "print(1)",
+          },
+        },
+        false,
+        "/work",
+      ),
+    ).toEqual({
+      title: "Edit cell cell-2 in analysis.ipynb",
+      kind: "edit",
+      content: [{ type: "content", content: { type: "text", text: "```\nprint(1)\n```" } }],
+      locations: [{ path: "/work/analysis.ipynb" }],
+    });
+    expect(
+      toolInfoFromToolUse({
+        name: "NotebookEdit",
+        input: {
+          notebook_path: "/work/analysis.ipynb",
+          cell_id: "cell-2",
+          new_source: "",
+          edit_mode: "delete",
+        },
+      }),
+    ).toMatchObject({ title: "Delete cell cell-2 in /work/analysis.ipynb", content: [] });
+  });
+
+  it("does not send the result text that repeats the cell source", () => {
+    const toolUse = {
+      type: "tool_use" as const,
+      id: "toolu_notebook",
+      name: "NotebookEdit",
+      input: { notebook_path: "/work/a.ipynb", cell_id: "c1", new_source: "x = 1" },
+    };
+
+    const notifications = toAcpNotifications(
+      [
+        {
+          type: "tool_result",
+          tool_use_id: "toolu_notebook",
+          content: "Updated cell c1 with x = 1",
+        },
+      ],
+      "user",
+      "test-session",
+      { toolu_notebook: toolUse },
+      {} as AcpClient,
+      mockLogger,
+      { registerHooks: false },
+    );
+
+    expect(notifications[0].update).toMatchObject({
+      status: "completed",
+      content: [{ type: "content", content: { type: "text", text: "```\nx = 1\n```" } }],
+    });
+    expect(notifications[0].update).not.toHaveProperty("rawOutput");
+  });
+});
