@@ -327,6 +327,28 @@ export function taskStateToPlanEntries(state: TaskState): PlanEntry[] {
   }));
 }
 
+/** The plan entries that the client holds for each task list, as JSON. */
+const publishedTaskPlans = new WeakMap<TaskState, string>();
+
+/**
+ * The plan entries of the task list, or undefined when the client already
+ * holds the same entries. The TaskCreated and TaskCompleted hooks and the
+ * Task* tool results report the same change, so the second report of a
+ * change has nothing new.
+ */
+export function changedTaskPlanEntries(state: TaskState): PlanEntry[] | undefined {
+  const entries = taskStateToPlanEntries(state);
+  const json = JSON.stringify(entries);
+  if (publishedTaskPlans.get(state) === json) return undefined;
+  publishedTaskPlans.set(state, json);
+  return entries;
+}
+
+/** Forgets the plan that the client holds, so that the next plan goes out, for example on replay. */
+export function forgetPublishedTaskPlan(state: TaskState): void {
+  publishedTaskPlans.delete(state);
+}
+
 /* Callbacks are keyed globally because the SDK hook is process-wide, but each
  * entry retains its owning ACP session so cancellation/teardown can release it. */
 const toolUseCallbacks = new Map<

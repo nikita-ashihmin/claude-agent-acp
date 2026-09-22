@@ -5,6 +5,7 @@ import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client
 import { ChangedMetaFilter } from "../tool-calls/changed-meta-filter.js";
 import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
 import { AcpToolCallRenderer } from "../tool-calls/renderer.js";
+import { changedTaskPlanEntries, createTaskHook, type TaskState } from "../tools.js";
 
 const logger = { log: () => {}, error: () => {} };
 
@@ -421,5 +422,49 @@ describe("ChangedMetaFilter", () => {
     };
     expect(filter.apply(chunk)).toEqual(chunk);
     expect(filter.apply(chunk)).toEqual(chunk);
+  });
+});
+
+describe("task plans", () => {
+  it("publishes a Task* change once when the hook reports it first", async () => {
+    const taskState: TaskState = new Map();
+    const plans: unknown[] = [];
+    const hook = createTaskHook({
+      taskState,
+      onChange: async () => {
+        const entries = changedTaskPlanEntries(taskState);
+        if (entries) plans.push(entries);
+      },
+    });
+    await hook(
+      {
+        hook_event_name: "TaskCreated",
+        task_id: "1",
+        task_subject: "Write tests",
+      } as any,
+      undefined,
+      { signal: new AbortController().signal },
+    );
+    const cache: ToolUseCache = {
+      t: { type: "tool_use", id: "t", name: "TaskCreate", input: { subject: "Write tests" } },
+    } as any;
+    const updates = toAcpNotifications(
+      [
+        {
+          type: "tool_result",
+          tool_use_id: "t",
+          content: "Task #1 created successfully: Write tests",
+        },
+      ],
+      "user",
+      "s",
+      cache,
+      {} as AcpClient,
+      logger,
+      { taskState },
+    );
+
+    expect(plans).toHaveLength(1);
+    expect(updates).toEqual([]);
   });
 });

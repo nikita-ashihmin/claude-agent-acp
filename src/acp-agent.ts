@@ -225,8 +225,9 @@ import {
   parseTaskUpdateOutput,
   planEntries,
   registerHookCallback,
+  changedTaskPlanEntries,
+  forgetPublishedTaskPlan,
   TaskState,
-  taskStateToPlanEntries,
   unregisterHookCallback,
 } from "./tools.js";
 import { previewPatchContent } from "./diff.js";
@@ -2943,12 +2944,11 @@ export class ClaudeAcpAgent {
   }
 
   private async publishTaskPlan(sessionId: string, taskState: TaskState): Promise<void> {
+    const entries = changedTaskPlanEntries(taskState);
+    if (!entries) return;
     await this.client.sessionUpdate({
       sessionId,
-      update: {
-        sessionUpdate: "plan",
-        entries: taskStateToPlanEntries(taskState),
-      },
+      update: { sessionUpdate: "plan", entries },
     });
   }
 
@@ -6549,6 +6549,8 @@ export class ClaudeAcpAgent {
       `[session/replay] sessionId=${sessionId} phase=read durationMs=${Math.round(historyLoadedAt - replayStartedAt)} messages=${messages.length}`,
     );
     const session = this.sessions[sessionId];
+    // A replay rebuilds the client view, so its plan goes out again.
+    if (session?.taskState) forgetPublishedTaskPlan(session.taskState);
     const forwardSubagentText =
       session?.forwardSubagentText ?? supportsSubagentTranscript(this.clientCapabilities);
     const supportsTypedFailures = supportsAirSessionFailures(this.clientCapabilities);
@@ -9644,12 +9646,8 @@ export function toAcpNotifications(
               }
             }
           }
-          if (shouldEmitTaskPlan) {
-            update = {
-              sessionUpdate: "plan",
-              entries: taskStateToPlanEntries(taskState),
-            };
-          }
+          const entries = shouldEmitTaskPlan ? changedTaskPlanEntries(taskState) : undefined;
+          if (entries) update = { sessionUpdate: "plan", entries };
         } else if (toolUse.name !== "TodoWrite") {
           // A command sends its output first, then the exit and the status.
           const [finalUpdate, ...rest] = renderer
