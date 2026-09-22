@@ -26,7 +26,7 @@ function patchText(content: Awaited<ReturnType<typeof previewPatchContent>>): st
   return (block._meta as any).jetbrains.air.diffPatch.text;
 }
 
-describe("diff statistics", () => {
+describe("diff patches", () => {
   it("builds a compact approval patch from a 12000-line file", async () => {
     const lines = Array.from({ length: 12_000 }, (_, index) => `line ${index + 1}`);
     const filePath = await temporaryFile(`${lines.join("\n")}\n`);
@@ -130,7 +130,6 @@ describe("diff statistics", () => {
     const text = (result.content?.[0]._meta as any).jetbrains.air.diffPatch.text;
     expect(text).toContain("@@ -1 +1 @@");
     expect(text).toContain("@@ -10,0 +10 @@");
-    expect(text).not.toContain("diffStats");
   });
 
   it("falls back to old and new text when a negotiated patch cannot be built", () => {
@@ -158,132 +157,5 @@ describe("diff statistics", () => {
         newText: "unsupported",
       },
     ]);
-  });
-
-  it("counts each block independently without reading full file content", () => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      get originalFile() {
-        throw new Error("The patch already contains the changes");
-      },
-      get content() {
-        throw new Error("The patch already contains the changes");
-      },
-      structuredPatch: [
-        {
-          oldStart: 1,
-          oldLines: 3,
-          newStart: 1,
-          newLines: 2,
-          lines: [" context", "-first", "-second", "+replacement"],
-        },
-        {
-          oldStart: 1_000_000,
-          oldLines: 0,
-          newStart: 1_000_000,
-          newLines: 2,
-          lines: ["+first", "+second"],
-        },
-      ],
-    });
-
-    expect(result.content?.map((block) => block._meta)).toEqual([
-      { jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 2 } } } },
-      { jetbrains: { air: { version: 1, diffStats: { version: 1, added: 2, removed: 0 } } } },
-    ]);
-  });
-
-  it("counts patch operations when an EOF change produces equal displayed texts", () => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      structuredPatch: [
-        {
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          lines: ["-same", "\\ No newline at end of file", "+same"],
-        },
-      ],
-    });
-
-    expect(result.content).toEqual([
-      {
-        type: "diff",
-        path: "/file.ts",
-        oldText: "same",
-        newText: "same",
-        _meta: {
-          jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-        },
-      },
-    ]);
-  });
-
-  it("publishes zero counts for a block with only context", () => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      structuredPatch: [
-        { oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: [" unchanged"] },
-      ],
-    });
-
-    expect(result.content?.[0]._meta).toEqual({
-      jetbrains: { air: { version: 1, diffStats: { version: 1, added: 0, removed: 0 } } },
-    });
-  });
-
-  it.each([
-    { oldLines: 2, newLines: 1, lines: ["-old", "+new"] },
-    { oldLines: 1, newLines: 2, lines: ["-old", "+new"] },
-    { oldLines: 1, newLines: 1, lines: ["?unsupported"] },
-    { oldLines: "1", newLines: 1, lines: ["-old", "+new"] },
-    { oldStart: -1, oldLines: 1, newLines: 1, lines: ["-old", "+new"] },
-    { newStart: Number.NaN, oldLines: 1, newLines: 1, lines: ["-old", "+new"] },
-    {
-      oldLines: 1,
-      newLines: 1,
-      lines: ["\\ No newline at end of file", "-old", "+new"],
-    },
-  ])("omits statistics for an inconsistent patch: %j", (hunk) => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      structuredPatch: [{ oldStart: 1, newStart: 1, ...hunk }],
-    });
-
-    expect(result.content).toHaveLength(1);
-    expect(result.content?.[0]).not.toHaveProperty("_meta");
-  });
-
-  it("omits statistics once hunk coordinates stop increasing", () => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      structuredPatch: [
-        { oldStart: 10, oldLines: 1, newStart: 10, newLines: 1, lines: ["-old", "+new"] },
-        { oldStart: 5, oldLines: 1, newStart: 5, newLines: 1, lines: ["-old", "+new"] },
-      ],
-    });
-
-    expect(result.content?.[0]).toHaveProperty("_meta");
-    expect(result.content?.[1]).not.toHaveProperty("_meta");
-  });
-
-  it("omits statistics when later hunk coordinates ignore the accumulated line delta", () => {
-    const result = toolUpdateFromDiffToolResponse({
-      filePath: "/file.ts",
-      structuredPatch: [
-        {
-          oldStart: 10,
-          oldLines: 1,
-          newStart: 10,
-          newLines: 2,
-          lines: ["-old", "+new", "+extra"],
-        },
-        { oldStart: 20, oldLines: 1, newStart: 20, newLines: 1, lines: ["-old", "+new"] },
-      ],
-    });
-
-    expect(result.content?.[0]).toHaveProperty("_meta");
-    expect(result.content?.[1]).not.toHaveProperty("_meta");
   });
 });

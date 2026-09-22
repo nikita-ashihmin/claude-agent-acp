@@ -1214,9 +1214,6 @@ describe("Bash terminal output", () => {
           path: "/Users/test/project/file.ts",
           oldText: "context before\nold text\ncontext after",
           newText: "context before\nnew text\ncontext after",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
       ]);
       expect(hookUpdate.locations).toEqual([{ path: "/Users/test/project/file.ts", line: 5 }]);
@@ -1303,18 +1300,12 @@ describe("Bash terminal output", () => {
           path: "/Users/test/project/file.ts",
           oldText: "foo",
           newText: "bar",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
         {
           type: "diff",
           path: "/Users/test/project/file.ts",
           oldText: "foo",
           newText: "bar",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
       ]);
       expect(hookUpdate.locations).toEqual([
@@ -1479,9 +1470,6 @@ describe("Bash terminal output", () => {
           path: "/Users/test/project/file.ts",
           oldText: "line1\nold line2\nline3",
           newText: "line1\nNEW line2\nline3",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
       ]);
       expect(hookUpdate.locations).toEqual([{ path: "/Users/test/project/file.ts", line: 1 }]);
@@ -1556,9 +1544,6 @@ describe("Bash terminal output", () => {
           path: "/Users/test/project/new.ts",
           oldText: null,
           newText: "first\nsecond",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 2, removed: 0 } } },
-          },
         },
       ]);
     });

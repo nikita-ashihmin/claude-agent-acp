@@ -1676,9 +1676,6 @@ describe("toolUpdateFromDiffToolResponse", () => {
           path: "/Users/test/project/test.txt",
           oldText: "context before\nold line\ncontext after",
           newText: "context before\nnew line\ncontext after",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
       ],
       locations: [{ path: "/Users/test/project/test.txt", line: 1 }],
@@ -1713,18 +1710,12 @@ describe("toolUpdateFromDiffToolResponse", () => {
           path: "/Users/test/project/file.ts",
           oldText: "oldValue",
           newText: "newValue",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
         {
           type: "diff",
           path: "/Users/test/project/file.ts",
           oldText: "oldValue",
           newText: "newValue",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 1, removed: 1 } } },
-          },
         },
       ],
       locations: [
@@ -1755,9 +1746,6 @@ describe("toolUpdateFromDiffToolResponse", () => {
           path: "/Users/test/project/file.ts",
           oldText: "context\nremoved line",
           newText: "context",
-          _meta: {
-            jetbrains: { air: { version: 1, diffStats: { version: 1, added: 0, removed: 1 } } },
-          },
         },
       ],
       locations: [{ path: "/Users/test/project/file.ts", line: 10 }],

@@ -82,7 +82,6 @@ In patch mode, `oldText: null` and `newText: ""` are compatibility placeholders.
 They are not file snapshots or changed fragments.
 The receiver must use `diffPatch.text` as the change payload after it accepts the negotiated extension.
 
-The adapter omits `diffStats` in patch mode.
 The receiver derives line counts and changed fragments from the patch.
 
 ## Compatibility and fallback
