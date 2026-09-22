@@ -1314,7 +1314,7 @@ describe("Bash terminal output", () => {
       ]);
     });
 
-    it("should not include content/locations for non-Edit tools", async () => {
+    it("sends no hook update without a diff or a marker for non-Edit tools", async () => {
       const toolUseCache: ToolUseCache = {};
 
       const hookUpdates: any[] = [];
@@ -1356,10 +1356,79 @@ describe("Bash terminal output", () => {
         { signal: AbortSignal.abort() },
       );
 
+      // No diff and no tool_response marker: the hook has nothing to add.
+      expect(hookUpdates).toHaveLength(0);
+    });
+
+    it("keeps only the async launch markers of a tool_response", async () => {
+      const hookUpdates: any[] = [];
+      const client = {
+        sessionUpdate: async (notification: any) => {
+          hookUpdates.push(notification);
+        },
+      } as unknown as AcpClient;
+      toAcpNotifications(
+        [
+          {
+            type: "tool_use" as const,
+            id: "toolu_async_agent",
+            name: "Agent",
+            input: { description: "Research", prompt: "Look around" },
+          },
+          {
+            type: "tool_use" as const,
+            id: "toolu_read_hook",
+            name: "Read",
+            input: { file_path: "/a.ts" },
+          },
+        ],
+        "assistant",
+        "test-session",
+        {},
+        client,
+        mockLogger,
+      );
+
+      const hook = createPostToolUseHook();
+      const fire = (toolUseId: string, toolName: string, toolResponse: unknown) =>
+        hook(
+          {
+            hook_event_name: "PostToolUse",
+            tool_name: toolName,
+            tool_input: {},
+            tool_response: toolResponse,
+            tool_use_id: toolUseId,
+            session_id: "test-session",
+            transcript_path: "/tmp/test",
+            cwd: "/tmp",
+          },
+          toolUseId,
+          { signal: AbortSignal.abort() },
+        );
+      await fire("toolu_async_agent", "Agent", {
+        status: "async_launched",
+        isAsync: true,
+        agentId: "agent-1",
+        description: "Research",
+        prompt: "Look around",
+        outputFile: "/tmp/agent-1.output",
+      });
+      await fire("toolu_read_hook", "Read", {
+        type: "text",
+        file: { filePath: "/a.ts", content: "whole file", numLines: 1 },
+      });
+
       expect(hookUpdates).toHaveLength(1);
-      const hookUpdate = hookUpdates[0].update;
-      expect(hookUpdate.content).toBeUndefined();
-      expect(hookUpdate.locations).toBeUndefined();
+      expect(hookUpdates[0].update).toEqual({
+        sessionUpdate: "tool_call_update",
+        toolCallId: "toolu_async_agent",
+        _meta: {
+          claudeCode: {
+            toolName: "Agent",
+            toolResponse: { status: "async_launched", isAsync: true },
+          },
+        },
+      });
     });
 
     // Regression for issue #889: tool uses that never register a callback
@@ -1550,7 +1619,7 @@ describe("Bash terminal output", () => {
   });
 
   describe("post-tool-use hook preserves terminal _meta", () => {
-    it("should send terminal_output and terminal_exit as separate notifications, and hook should only have claudeCode", async () => {
+    it("should send terminal_output and terminal_exit as separate notifications, and no hook update", async () => {
       const clientCapabilities: ClientCapabilities = {
         _meta: { terminal_output: true },
       };
@@ -1642,20 +1711,12 @@ describe("Bash terminal output", () => {
         { signal: AbortSignal.abort() },
       );
 
-      // Step 4: Hook update should only have claudeCode, no terminal fields
-      // (terminal events were already sent as separate notifications)
-      expect(hookUpdates).toHaveLength(1);
-      const hookMeta = hookUpdates[0].update._meta;
-      expect(hookMeta.claudeCode).toMatchObject({
-        toolName: "Bash",
-        toolResponse: "file1.txt",
-      });
-      expect(hookMeta.terminal_info).toBeUndefined();
-      expect(hookMeta.terminal_output).toBeUndefined();
-      expect(hookMeta.terminal_exit).toBeUndefined();
+      // Step 4: The terminal events already carried the output, and the
+      // string tool_response has no marker, so the hook sends nothing.
+      expect(hookUpdates).toHaveLength(0);
     });
 
-    it("should not include terminal _meta in hook update when client lacks terminal_output support", async () => {
+    it("sends no hook update when client lacks terminal_output support", async () => {
       const toolUseCache: ToolUseCache = {};
 
       const hookUpdates: any[] = [];
@@ -1723,13 +1784,8 @@ describe("Bash terminal output", () => {
         { signal: AbortSignal.abort() },
       );
 
-      // Hook update should only have claudeCode, no terminal fields
-      expect(hookUpdates).toHaveLength(1);
-      const hookMeta = hookUpdates[0].update._meta;
-      expect(hookMeta.claudeCode).toBeDefined();
-      expect(hookMeta.terminal_info).toBeUndefined();
-      expect(hookMeta.terminal_output).toBeUndefined();
-      expect(hookMeta.terminal_exit).toBeUndefined();
+      // The tool result already carried the output, so the hook sends nothing.
+      expect(hookUpdates).toHaveLength(0);
     });
   });
 });

@@ -228,6 +228,7 @@ import {
   TaskState,
   taskStateToPlanEntries,
   toolInfoFromToolUse,
+  toolResponseMarkers,
   toolUpdateFromToolResult,
   unregisterHookCallback,
 } from "./tools.js";
@@ -1269,7 +1270,9 @@ export type ToolUpdateMeta = {
     toolName: string;
     /* A human-readable title supplied by Claude Code for the tool call. */
     title?: string;
-    /* The structured output provided by Claude Code. */
+    /* Small structured facts provided by Claude Code. On a PostToolUse update
+       only the `status` and `isAsync` markers of the tool_response travel; the
+       tool output itself is in the tool-call content. */
     toolResponse?: unknown;
     /* For a tool call made inside a subagent: the tool_use id of the
        Agent/Task call that spawned the subagent. Mirrors the SDK's
@@ -9676,10 +9679,14 @@ export function toAcpNotifications(
                           ? await patchUpdateFromDiffToolResponse(toolResponse)
                           : undefined) ?? toolUpdateFromDiffToolResponse(toolResponse))
                       : {};
+                  // Only the marker fields of the tool_response travel: the
+                  // rest repeats output that the content already carries.
+                  const markers = toolResponseMarkers(toolResponse);
+                  if (!markers && !editDiff.content && !editDiff.locations) return;
                   const update: SessionNotification["update"] = {
                     _meta: {
                       claudeCode: {
-                        toolResponse,
+                        ...(markers ? { toolResponse: markers } : {}),
                         toolName,
                         ...(options?.parentToolUseId
                           ? { parentToolUseId: options.parentToolUseId }
