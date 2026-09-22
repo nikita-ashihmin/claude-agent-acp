@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ClientCapabilities } from "@agentclientprotocol/sdk";
 import { AcpClient, toAcpNotifications, ToolUseCache } from "../acp-agent.js";
 import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client-capabilities.js";
+import { backgroundedBashToolCall } from "../tool-calls/background.js";
 import { ChangedMetaFilter } from "../tool-calls/changed-meta-filter.js";
 import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
 import { AcpToolCallRenderer } from "../tool-calls/renderer.js";
@@ -466,5 +467,32 @@ describe("task plans", () => {
 
     expect(plans).toHaveLength(1);
     expect(updates).toEqual([]);
+  });
+});
+
+describe("background Bash", () => {
+  const completed = {
+    sessionId: "s",
+    update: {
+      sessionUpdate: "tool_call_update" as const,
+      toolCallId: "t",
+      status: "completed" as const,
+    },
+  };
+
+  it("marks the tool call of a command that became an async task", () => {
+    expect(backgroundedBashToolCall(completed, { task_id: "b1", tool_use_id: "t" }, true)).toEqual({
+      ...completed,
+      update: {
+        ...completed.update,
+        _meta: { jetbrains: { air: { version: 1, asyncTasks: { backgrounded: true } } } },
+      },
+    });
+  });
+
+  it("sends no marker to a client without the asyncTasks capability", () => {
+    expect(backgroundedBashToolCall(completed, { task_id: "b1", tool_use_id: "t" }, false)).toBe(
+      completed,
+    );
   });
 });
