@@ -219,6 +219,7 @@ import {
   clearHookCallbacks,
   completeHookCallback,
   createPostToolUseHook,
+  hasHookCallback,
   createTaskHook,
   parseTaskCreateOutput,
   parseTaskListOutput,
@@ -237,6 +238,7 @@ import {
   previewPatchContent,
   toolUpdateFromDiffToolResponse,
 } from "./diff.js";
+import { ToolCallFieldTracker } from "./tool-call-fields.js";
 import { nodeToWebReadable, nodeToWebWritable, Pushable, unreachable } from "./utils.js";
 import {
   acceptedPlanToolResult,
@@ -908,6 +910,10 @@ export type Session = {
    *  tool_use block streams; this set makes the two paths converge regardless of
    *  order. Pruned at `tool_result` time alongside `toolUseCache`. */
   emittedToolCalls: Set<string>;
+  /** The fields that the client holds for each open tool call, so that a
+   *  `tool_call_update` resends only the fields that changed. Created lazily
+   *  by {@link toolCallFieldsOf}. */
+  toolCallFields?: ToolCallFieldTracker;
   /** ACP session affinity for calls emitted eagerly by permission handling. */
   eagerToolCallSessions?: Map<string, string>;
   /** ExitPlanMode denial that intentionally interrupts the current Claude
@@ -1947,6 +1953,7 @@ export class ClaudeAcpAgent {
         this.closeQueryStream(session);
         session.abortController.abort();
         session.eagerToolCallSessions?.clear();
+        session.toolCallFields?.clear();
         clearHookCallbacks(id);
         session.nativeSubagentRuntime?.clear();
         session.asyncTaskRuntime?.clear();
@@ -5518,6 +5525,7 @@ export class ClaudeAcpAgent {
                 cwd: session.cwd,
                 taskState: session.taskState,
                 emittedToolCalls: session.emittedToolCalls,
+                toolCallFields: toolCallFieldsOf(session),
                 messageId: currentStreamMessageId,
                 streamedToolInputs,
               },
@@ -5885,6 +5893,7 @@ export class ClaudeAcpAgent {
                 cwd: session.cwd,
                 taskState: session.taskState,
                 emittedToolCalls: session.emittedToolCalls,
+                toolCallFields: toolCallFieldsOf(session),
                 messageId: messageIdForGrouping(message),
                 toolUseResult: message.type === "user" ? message.tool_use_result : undefined,
                 // On the wire since CLI 2.1.216 but not in SDKUserMessage's
@@ -5991,6 +6000,7 @@ export class ClaudeAcpAgent {
             subagents.clear();
             asyncTasks.clear();
             session.eagerToolCallSessions?.clear();
+            session.toolCallFields?.clear();
             clearHookCallbacks(params.sessionId);
             session.taskState.clear();
             await this.publishTaskPlan(params.sessionId, session.taskState);
@@ -6062,6 +6072,7 @@ export class ClaudeAcpAgent {
         );
         this.closeQueryStream(session);
         session.eagerToolCallSessions?.clear();
+        session.toolCallFields?.clear();
         clearHookCallbacks(params.sessionId);
         session.nativeSubagentRuntime?.clear();
         session.asyncTaskRuntime?.clear();
@@ -6122,6 +6133,7 @@ export class ClaudeAcpAgent {
     // this fire-and-forget notification, so there is nothing to do here.
     if (session.queryClosed) {
       session.eagerToolCallSessions?.clear();
+      session.toolCallFields?.clear();
       clearHookCallbacks(params.sessionId);
       return;
     }
@@ -6139,6 +6151,7 @@ export class ClaudeAcpAgent {
       );
     } finally {
       session.eagerToolCallSessions?.clear();
+      session.toolCallFields?.clear();
       clearHookCallbacks(params.sessionId);
     }
     // A priority steer may still be queued in the SDK when cancellation
@@ -6461,6 +6474,7 @@ export class ClaudeAcpAgent {
     // appropriate; query.close() above has already torn the subprocess down.
     session.abortController.abort();
     session.eagerToolCallSessions?.clear();
+    session.toolCallFields?.clear();
     clearHookCallbacks(sessionId);
     session.nativeSubagentRuntime?.clear();
     session.asyncTaskRuntime?.clear();
@@ -6942,6 +6956,7 @@ export class ClaudeAcpAgent {
     signal: AbortSignal,
     parentToolUseId?: string,
     ownerSessionId: string = params.sessionId,
+    pinPreviewContent = false,
   ): Promise<RequestPermissionResponse> {
     if (signal.aborted) throw new Error("Tool use aborted");
     // The SDK may invoke `canUseTool` (and therefore this permission request)
@@ -6959,6 +6974,7 @@ export class ClaudeAcpAgent {
       signal,
       params.sessionId,
       params.toolCall.content ?? undefined,
+      pinPreviewContent,
     );
     if (signal.aborted) throw new Error("Tool use aborted");
 
@@ -6998,12 +7014,21 @@ export class ClaudeAcpAgent {
     signal?: AbortSignal,
     notificationSessionId: string = sessionId,
     previewContent?: ToolCallContent[],
+    pinPreviewContent = false,
   ): Promise<void> {
     const session = this.sessions[sessionId];
     if (!session) {
       return;
     }
+    // The permission request shows an exact approval patch. The streamed
+    // tool input must not replace it with the standard diff of the snippet.
+    const pinPreview = () => {
+      if (pinPreviewContent && previewContent) {
+        toolCallFieldsOf(session).pinContent(toolCallId, previewContent);
+      }
+    };
     if (session.emittedToolCalls.has(toolCallId)) {
+      pinPreview();
       return;
     }
     session.emittedToolCalls.add(toolCallId);
@@ -7029,6 +7054,8 @@ export class ClaudeAcpAgent {
         },
       };
     }
+    toolCallFieldsOf(session).apply(update);
+    pinPreview();
     try {
       const emission = this.client.sessionUpdate({ sessionId: notificationSessionId, update });
       await (signal ? raceWithAbort(emission, signal) : emission);
@@ -7038,6 +7065,7 @@ export class ClaudeAcpAgent {
       // be allowed to publish the tool call instead of refining a phantom one.
       session.emittedToolCalls.delete(toolCallId);
       session.eagerToolCallSessions?.delete(toolCallId);
+      session.toolCallFields?.delete(toolCallId);
       throw error;
     }
   }
@@ -7208,6 +7236,7 @@ export class ClaudeAcpAgent {
         signal,
         parentToolUseId,
         sessionId,
+        previewContent !== undefined,
       );
       if (signal.aborted) throw new Error("Tool use aborted");
       const decodedPermission = decodeClaudePermissionResponse(
@@ -9421,6 +9450,13 @@ function resolveSkillPath(skillName: string, cwd?: string): string | undefined {
   return candidates.find((candidate) => existsSync(candidate));
 }
 
+/** The tool-call field tracker of a session, created on first use. */
+function toolCallFieldsOf(session: {
+  toolCallFields?: ToolCallFieldTracker;
+}): ToolCallFieldTracker {
+  return (session.toolCallFields ??= new ToolCallFieldTracker());
+}
+
 /** Build the `tool_call` (or, with `refine`, the `tool_call_update`)
  *  notification for a tool_use. Shared by every site that surfaces a tool call:
  *  the streamed tool_use path (first encounter → tool_call, later encounter →
@@ -9522,6 +9558,10 @@ export function toAcpNotifications(
     // tool_call/update decision falls back to `toolUseCache` presence (the
     // historical single-source behavior).
     emittedToolCalls?: Set<string>;
+    // Remembers the fields sent for each open tool call. When present, a
+    // tool_call_update carries only the fields that changed, and an update
+    // with nothing new is dropped. Mutated in place.
+    toolCallFields?: ToolCallFieldTracker;
     // Opaque id identifying the message these chunks belong to (ACP message ids
     // are opaque strings — no particular format is required). Attached to
     // user/agent message and thought chunks so clients can group streamed chunks
@@ -9593,6 +9633,8 @@ export function toAcpNotifications(
   // Only handle the first chunk for streaming; extend as needed for batching
   for (const chunk of content) {
     let update: SessionNotification["update"] | null = null;
+    // The tool call that this chunk finishes, if it is a tool result.
+    let finishedToolCallId: string | undefined;
     switch (chunk.type) {
       case "text":
       case "text_delta": {
@@ -9659,6 +9701,7 @@ export function toAcpNotifications(
             // closing over the name keeps the diff working without depending on
             // (or pinning) the cache entry's lifetime.
             const toolName = chunk.name;
+            const hookToolCallId = chunk.id;
             registerHookCallback(
               chunk.id,
               {
@@ -9697,11 +9740,19 @@ export function toAcpNotifications(
                     sessionUpdate: "tool_call_update",
                     ...editDiff,
                   };
+                  // The final result may replace a pinned approval patch.
+                  if (
+                    options?.toolCallFields &&
+                    !options.toolCallFields.apply(update, { replacePinnedContent: true })
+                  ) {
+                    return;
+                  }
                   await client.sessionUpdate({
                     sessionId,
                     update,
                   });
                 },
+                onRelease: () => options?.toolCallFields?.finishHook(hookToolCallId),
               },
               sessionId,
             );
@@ -9763,6 +9814,7 @@ export function toAcpNotifications(
         const wasEmitted = options?.emittedToolCalls?.has(chunk.tool_use_id) === true;
         options?.emittedToolCalls?.delete(chunk.tool_use_id);
         completeHookCallback(chunk.tool_use_id);
+        finishedToolCallId = chunk.tool_use_id;
         // Why this is_error result carries harness prose instead of tool
         // output (user-rejected / interrupted / …), when the SDK said so.
         // Spread into the claudeCode meta of every update emitted below; the
@@ -9969,7 +10021,24 @@ export function toAcpNotifications(
         };
       }
       applyMessageId(update, options?.messageId);
-      output.push({ sessionId, update });
+      // A tool result is final, so it may replace a pinned approval patch,
+      // for example with the error text of a rejected Edit.
+      if (
+        !options?.toolCallFields ||
+        options.toolCallFields.apply(update, {
+          replacePinnedContent: finishedToolCallId !== undefined,
+        })
+      ) {
+        output.push({ sessionId, update });
+      }
+    }
+    if (finishedToolCallId !== undefined) {
+      // The PostToolUse hook can still send the final diff, so the fields
+      // stay tracked until its callback leaves the registry.
+      options?.toolCallFields?.finishResult(
+        finishedToolCallId,
+        hasHookCallback(finishedToolCallId),
+      );
     }
   }
 
@@ -9987,6 +10056,7 @@ export function streamEventToAcpNotifications(
     cwd?: string;
     taskState?: TaskState;
     emittedToolCalls?: Set<string>;
+    toolCallFields?: ToolCallFieldTracker;
     messageId?: string;
     streamedToolInputs?: StreamedToolInputCache;
   },
@@ -10000,6 +10070,7 @@ export function streamEventToAcpNotifications(
     cwd: options?.cwd,
     taskState: options?.taskState,
     emittedToolCalls: options?.emittedToolCalls,
+    toolCallFields: options?.toolCallFields,
     messageId: options?.messageId,
   };
   switch (event.type) {
@@ -10081,6 +10152,9 @@ export function streamEventToAcpNotifications(
           };
         }
         applyMessageId(update, options?.messageId);
+        // A refinement resends only what changed: rawInput grows with every
+        // field, and title, kind, and locations usually stay the same.
+        if (options?.toolCallFields && !options.toolCallFields.apply(update)) return [];
         return [{ sessionId, update }];
       }
       return toAcpNotifications(

@@ -1452,20 +1452,25 @@ const toolUseCallbacks = new Map<
       toolInput: unknown,
       toolResponse: unknown,
     ) => Promise<void>;
+    onRelease?: () => void;
   }
 >();
 
-/* Setup callbacks that will be called when receiving hooks from Claude Code */
+/* Setup callbacks that will be called when receiving hooks from Claude Code.
+ * `onRelease` runs once when the callback leaves the registry: after the hook
+ * fired, after the grace period, or at session teardown. */
 export const registerHookCallback = (
   toolUseID: string,
   {
     onPostToolUseHook,
+    onRelease,
   }: {
     onPostToolUseHook?: (
       toolUseID: string,
       toolInput: unknown,
       toolResponse: unknown,
     ) => Promise<void>;
+    onRelease?: () => void;
   },
   ownerId?: string,
 ) => {
@@ -1473,6 +1478,7 @@ export const registerHookCallback = (
   toolUseCallbacks.set(toolUseID, {
     ownerId,
     onPostToolUseHook,
+    onRelease,
   });
 };
 
@@ -1480,6 +1486,12 @@ export function unregisterHookCallback(toolUseID: string): void {
   const callback = toolUseCallbacks.get(toolUseID);
   if (callback?.cleanupTimer) clearTimeout(callback.cleanupTimer);
   toolUseCallbacks.delete(toolUseID);
+  callback?.onRelease?.();
+}
+
+/** Whether a PostToolUse callback for the tool use is still registered. */
+export function hasHookCallback(toolUseID: string): boolean {
+  return toolUseCallbacks.has(toolUseID);
 }
 
 /** PostToolUse normally follows tool_result, so keep the callback for a short

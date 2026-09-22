@@ -170,7 +170,11 @@ export async function patchUpdateFromDiffToolResponse(
         gitPatchText(response.filePath, oldText === null ? "create" : "update", hunks),
       ),
     ],
-    locations: hunks.map(({ newStart }) => ({ path: response.filePath!, line: newStart })),
+    // A created file keeps the location of its Write tool call.
+    locations:
+      oldText === null
+        ? [{ path: response.filePath }]
+        : hunks.map(({ newStart }) => ({ path: response.filePath!, line: newStart })),
   };
 }
 
