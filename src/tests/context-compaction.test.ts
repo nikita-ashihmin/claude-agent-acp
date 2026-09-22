@@ -303,11 +303,8 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
       compactionId: "cmp-1",
       status: "failed",
       error: "summary rejected",
-      _meta: {
-        jetbrains: {
-          air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
-        },
-      },
+      // The standard error field carries the error once.
+      _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
     });
     expect(compaction.consumeDuplicateErrorOutput("summary rejected\n")).toBe(true);
     expect(compaction.consumeDuplicateErrorOutput("summary rejected")).toBe(false);
@@ -401,6 +398,25 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
   });
 });
 
+describe("ContextCompactionLifecycle summary chunks", () => {
+  it("does not repeat a streamed summary in the terminal update", async () => {
+    const { sent, compaction } = lifecycle("compaction_update");
+    await compaction.start("cmp-1");
+    await compaction.heartbeat("cmp-1", "Retained ");
+    await compaction.heartbeat("cmp-1", "context.");
+    compaction.recordSummary("<summary>\nRetained context.\n</summary>");
+    await compaction.finish("cmp-1", "completed");
+
+    expect(sent.map((notification) => notification.sessionUpdate)).toEqual([
+      "compaction_update",
+      "compaction_summary_chunk",
+      "compaction_summary_chunk",
+      "compaction_update",
+    ]);
+    expect(sent[3]).not.toHaveProperty("summary");
+  });
+});
+
 describe("ContextCompactionLifecycle (tool_call)", () => {
   it("keeps the legacy synthetic tool call and never exposes the summary", async () => {
     const { sent, compaction } = lifecycle("tool_call");
@@ -462,7 +478,6 @@ describe("ContextCompactionLifecycle (tool_call)", () => {
             content: { type: "text", text: "Compaction failed: summary rejected" },
           },
         ],
-        rawOutput: { error: "summary rejected" },
         _meta: {
           jetbrains: {
             air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
@@ -472,7 +487,6 @@ describe("ContextCompactionLifecycle (tool_call)", () => {
       {
         sessionUpdate: "tool_call_update",
         toolCallId: "compact-failed",
-        rawOutput: { trigger: "manual", preTokens: 3 },
         _meta: {
           jetbrains: {
             air: { version: 1, contextCompaction: { version: 1, trigger: "manual", preTokens: 3 } },

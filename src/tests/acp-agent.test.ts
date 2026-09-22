@@ -10301,12 +10301,6 @@ describe("usage_update computation", () => {
       title: "Compact conversation",
       kind: "think",
       status: "completed",
-      rawOutput: {
-        trigger: "automatic",
-        preTokens: 180000,
-        postTokens: 12345,
-        durationMs: 2500,
-      },
       _meta: {
         jetbrains: {
           air: {
@@ -11377,7 +11371,9 @@ describe("assembled assistant text fallback", () => {
       sessionUpdate: "tool_call_update",
       toolCallId: "compact-start",
       status: "failed",
-      rawOutput: { error: "summary rejected" },
+      content: [
+        { type: "content", content: { type: "text", text: "Compaction failed: summary rejected" } },
+      ],
       _meta: {
         jetbrains: {
           air: { contextCompaction: { version: 1, error: "summary rejected" } },
@@ -11420,7 +11416,13 @@ describe("assembled assistant text fallback", () => {
       expect.objectContaining({
         sessionUpdate: "tool_call_update",
         status: "failed",
-        rawOutput: { error: "Not enough messages to compact." },
+        _meta: expect.objectContaining({
+          jetbrains: expect.objectContaining({
+            air: expect.objectContaining({
+              contextCompaction: { version: 1, error: "Not enough messages to compact." },
+            }),
+          }),
+        }),
       }),
     );
   });
@@ -11613,10 +11615,9 @@ describe("assembled assistant text fallback", () => {
         compactionId: "compact-start",
         status: "failed",
         error: "summary rejected",
+        // The standard error field carries the error once.
         _meta: {
-          jetbrains: {
-            air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
-          },
+          jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } },
         },
       },
     ]);

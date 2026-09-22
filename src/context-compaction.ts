@@ -3,6 +3,7 @@ import {
   ContextCompactionMetadata,
   createContextCompactionMeta,
 } from "./context-compaction-meta.js";
+import { compactionToolCall } from "./tool-calls/reporters/compaction.js";
 
 type CompactionStatus = "completed" | "failed";
 type TerminalStatus = CompactionStatus | "cancelled";
@@ -23,6 +24,8 @@ type CompactionState = {
   compactionId: string;
   terminalStatus?: TerminalStatus;
   heartbeatSent: boolean;
+  /** True after a summary chunk went out. The terminal update then sends no summary. */
+  summaryStreamed?: boolean;
   /** User-displayable summary reported by the PostCompact hook. While the
    *  compaction is in progress it awaits the terminal update; on a `completed`
    *  state it has been sent. */
@@ -219,14 +222,7 @@ export class ContextCompactionLifecycle {
       });
       return state;
     }
-    await this.send({
-      sessionUpdate: "tool_call",
-      toolCallId: compactionId,
-      title: "Compact conversation",
-      kind: "think",
-      status: "in_progress",
-      _meta: compactionToolMeta(),
-    });
+    await this.send(compactionToolCall.started(compactionId));
     return state;
   }
 
@@ -245,6 +241,7 @@ export class ContextCompactionLifecycle {
     if (this.presentation === "compaction_update") {
       const state = this.activeCompaction;
       if (!state || state.terminalStatus || !summaryChunk) return;
+      state.summaryStreamed = true;
       await this.send({
         sessionUpdate: "compaction_summary_chunk",
         compactionId: state.compactionId,
@@ -256,12 +253,7 @@ export class ContextCompactionLifecycle {
     const state = this.activeCompaction ?? (await this.start(fallbackId));
     if (state.terminalStatus || state.heartbeatSent) return;
     state.heartbeatSent = true;
-    await this.send({
-      sessionUpdate: "tool_call_update",
-      toolCallId: state.compactionId,
-      status: "in_progress",
-      _meta: compactionToolMeta(),
-    });
+    await this.send(compactionToolCall.inProgress(state.compactionId));
   }
 
   /**
@@ -313,7 +305,11 @@ export class ContextCompactionLifecycle {
     const hasMetadata = Object.keys(metadata).length > 0;
 
     if (this.presentation === "compaction_update") {
-      const summary = firstTerminal && terminalStatus === "completed" ? state.summary : undefined;
+      // A summary that went out as chunks is not sent again in full.
+      const summary =
+        firstTerminal && terminalStatus === "completed" && !state.summaryStreamed
+          ? state.summary
+          : undefined;
       await this.send({
         sessionUpdate: "compaction_update",
         compactionId: state.compactionId,
@@ -323,37 +319,22 @@ export class ContextCompactionLifecycle {
         // `_meta` is a replace-patch: seed it with the first terminal, then
         // only re-send it when the boundary adds facts, so a status-only
         // duplicate can't wipe the token counts.
-        ...(firstTerminal || hasMetadata ? { _meta: createContextCompactionMeta(metadata) } : {}),
+        // The standard `error` field carries the error, so `_meta` does not.
+        ...(firstTerminal || hasMetadata
+          ? { _meta: createContextCompactionMeta(withoutError(metadata)) }
+          : {}),
       });
       return;
     }
 
-    const rawOutput = hasMetadata ? metadata : undefined;
-    const errorContent =
-      status === "failed" && metadata.error
-        ? { content: [compactionErrorContent(metadata.error)] }
-        : {};
-    if (opened) {
-      await this.send({
-        sessionUpdate: "tool_call",
-        toolCallId: state.compactionId,
-        title: "Compact conversation",
-        kind: "think",
-        status,
-        ...errorContent,
-        ...(rawOutput ? { rawOutput } : {}),
-        _meta: compactionToolMeta(metadata),
-      });
-      return;
-    }
-    await this.send({
-      sessionUpdate: "tool_call_update",
-      toolCallId: state.compactionId,
-      ...(firstTerminal ? { status } : {}),
-      ...errorContent,
-      ...(rawOutput ? { rawOutput } : {}),
-      _meta: compactionToolMeta(metadata),
-    });
+    await this.send(
+      compactionToolCall.finished(
+        state.compactionId,
+        opened ? status : firstTerminal ? status : undefined,
+        metadata,
+        opened,
+      ),
+    );
   }
 
   /** Make `compactionId` the active entity, moving a pending hook summary onto
@@ -384,6 +365,14 @@ export class ContextCompactionLifecycle {
   }
 }
 
+function withoutError(
+  metadata: Omit<ContextCompactionMetadata, "version">,
+): Omit<ContextCompactionMetadata, "version"> {
+  const facts = { ...metadata };
+  delete facts.error;
+  return facts;
+}
+
 export function contextCompactionMetadataFromBoundary(compactMetadata: {
   trigger: "manual" | "auto";
   pre_tokens: number;
@@ -399,23 +388,5 @@ export function contextCompactionMetadataFromBoundary(compactMetadata: {
     ...(compactMetadata.duration_ms !== undefined
       ? { durationMs: compactMetadata.duration_ms }
       : {}),
-  };
-}
-
-/** A client detects the synthetic compaction tool call by
- *  `_meta.jetbrains.air.contextCompaction`, so no tool name travels. */
-function compactionToolMeta(
-  metadata: Omit<ContextCompactionMetadata, "version"> = {},
-): Record<string, unknown> {
-  return createContextCompactionMeta(metadata);
-}
-
-function compactionErrorContent(error: string) {
-  return {
-    type: "content" as const,
-    content: {
-      type: "text" as const,
-      text: `Compaction failed: ${error}`,
-    },
   };
 }
