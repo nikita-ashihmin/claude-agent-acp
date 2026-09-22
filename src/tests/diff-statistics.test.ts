@@ -133,6 +133,33 @@ describe("diff statistics", () => {
     expect(text).not.toContain("diffStats");
   });
 
+  it("falls back to old and new text when a negotiated patch cannot be built", () => {
+    const result = toolUpdateFromDiffToolResponse(
+      {
+        filePath: "/file.ts",
+        structuredPatch: [
+          {
+            oldStart: 1,
+            oldLines: 1,
+            newStart: 1,
+            newLines: 1,
+            lines: ["?unsupported"],
+          },
+        ],
+      },
+      true,
+    );
+
+    expect(result.content).toEqual([
+      {
+        type: "diff",
+        path: "/file.ts",
+        oldText: "unsupported",
+        newText: "unsupported",
+      },
+    ]);
+  });
+
   it("counts each block independently without reading full file content", () => {
     const result = toolUpdateFromDiffToolResponse({
       filePath: "/file.ts",
