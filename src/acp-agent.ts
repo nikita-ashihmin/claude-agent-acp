@@ -230,6 +230,7 @@ import {
   unregisterHookCallback,
 } from "./tools.js";
 import { previewPatchContent } from "./diff.js";
+import { ChangedMetaFilter } from "./tool-calls/changed-meta-filter.js";
 import { ToolCallFieldTracker } from "./tool-calls/field-tracker.js";
 import { ClientCapabilities as ToolCallClientCapabilities } from "./tool-calls/client-capabilities.js";
 import { AcpToolCallRenderer, type ToolUpdateMeta } from "./tool-calls/renderer.js";
@@ -1664,6 +1665,52 @@ class ClientConnection implements AcpClient {
   }
 }
 
+/**
+ * The client that the agent talks to. Every session update passes the
+ * {@link ChangedMetaFilter} last, after the native subagent routing, so a
+ * `tool_call_update` carries only the `_meta` keys that changed.
+ */
+class ChangedMetaClient implements AcpClient {
+  private readonly filter = new ChangedMetaFilter();
+
+  constructor(private readonly inner: AcpClient) {}
+
+  async sessionUpdate(params: AcpSessionNotification): Promise<void> {
+    const update = this.filter.apply(params.update as SessionNotification["update"]);
+    if (update) await this.inner.sessionUpdate({ ...params, update } as AcpSessionNotification);
+  }
+
+  requestPermission(
+    params: RequestPermissionRequest,
+    signal?: AbortSignal,
+  ): Promise<RequestPermissionResponse> {
+    return this.inner.requestPermission(params, signal);
+  }
+
+  readTextFile(params: ReadTextFileRequest): Promise<ReadTextFileResponse> {
+    return this.inner.readTextFile(params);
+  }
+
+  writeTextFile(params: WriteTextFileRequest): Promise<WriteTextFileResponse> {
+    return this.inner.writeTextFile(params);
+  }
+
+  createElicitation(
+    params: CreateElicitationRequest,
+    signal?: AbortSignal,
+  ): Promise<CreateElicitationResponse> {
+    return this.inner.createElicitation(params, signal);
+  }
+
+  completeElicitation(params: CompleteElicitationNotification): Promise<void> {
+    return this.inner.completeElicitation(params);
+  }
+
+  extNotification(method: string, params: Record<string, unknown>): Promise<void> {
+    return this.inner.extNotification(method, params);
+  }
+}
+
 function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const cleanup = () => signal.removeEventListener("abort", onAbort);
@@ -1881,7 +1928,7 @@ export class ClaudeAcpAgent {
 
   constructor(client: AcpClient, logger?: Logger) {
     this.sessions = {};
-    this.client = client;
+    this.client = new ChangedMetaClient(client);
     this.logger = logger ?? console;
     this.exitPlan = new ExitPlanCoordinator<Session, Turn>({
       currentSession: (id) => this.sessions[id],

@@ -5526,7 +5526,8 @@ describe("subagent permission attribution (issue #851)", () => {
       },
     });
     // Agent-native tool metadata keeps its own namespace alongside it.
-    expect(bashUpdate?._meta?.claudeCode).toMatchObject({ toolName: "Bash" });
+    // The tool_call sent the tool name, so the update does not repeat it.
+    expect((bashUpdate?._meta?.claudeCode as any)?.toolName).toBeUndefined();
   });
 
   it("omits the background task link for a client without the asyncTasks capability", async () => {
@@ -5591,7 +5592,7 @@ describe("subagent permission attribution (issue #851)", () => {
           update.sessionUpdate === "tool_call_update" && update.toolCallId === "bash-tool",
       );
     expect(bashUpdate).toMatchObject({ status: "completed" });
-    expect(bashUpdate?._meta).not.toHaveProperty("jetbrains");
+    expect(bashUpdate?._meta ?? {}).not.toHaveProperty("jetbrains");
   });
 });
 
@@ -11379,7 +11380,7 @@ describe("assembled assistant text fallback", () => {
       rawOutput: { error: "summary rejected" },
       _meta: {
         jetbrains: {
-          air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
+          air: { contextCompaction: { version: 1, error: "summary rejected" } },
         },
       },
     });
@@ -19338,9 +19339,13 @@ describe("permission_denied", () => {
         },
       ],
     });
-    expect((sent[0]._meta as any).claudeCode).toMatchObject({
-      toolName: "Write",
-      toolResponse: { decisionReasonType: "mode" },
+    // The tool_call sent the tool name, so the denial does not repeat it.
+    // The reason is in content. The SDK message differs, so it stays.
+    expect((sent[0]._meta as any).claudeCode).toEqual({
+      toolResponse: {
+        decisionReasonType: "mode",
+        message: "Permission to use Write has been denied.",
+      },
     });
     // Top-level denial: nothing to attribute it to.
     expect((sent[0]._meta as any).claudeCode).not.toHaveProperty("parentToolUseId");
@@ -19403,9 +19408,12 @@ describe("permission_denied", () => {
       denial("toolu_inner", { agent_id: "agent-1" }),
     ]);
 
-    expect((denials(updates)[0]._meta as any).claudeCode).toMatchObject({
-      toolName: "Write",
-      parentToolUseId: "toolu_agent",
+    // The tool_call carries the parent. The denial does not repeat it.
+    expect((denials(updates)[0]._meta as any).claudeCode).toEqual({
+      toolResponse: {
+        decisionReasonType: "mode",
+        message: "Permission to use Write has been denied.",
+      },
     });
   });
 

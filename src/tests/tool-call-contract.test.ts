@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ClientCapabilities } from "@agentclientprotocol/sdk";
 import { AcpClient, toAcpNotifications, ToolUseCache } from "../acp-agent.js";
 import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client-capabilities.js";
+import { ChangedMetaFilter } from "../tool-calls/changed-meta-filter.js";
 import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
 import { AcpToolCallRenderer } from "../tool-calls/renderer.js";
 
@@ -362,5 +363,63 @@ describe("tool call reports outside the tool_use stream", () => {
       elapsedTimeSeconds: 2,
       subagentType: "Explore",
     });
+  });
+});
+
+describe("ChangedMetaFilter", () => {
+  it("sends each _meta key of a tool call only when it changes", () => {
+    const filter = new ChangedMetaFilter();
+    filter.apply({
+      sessionUpdate: "tool_call",
+      toolCallId: "t",
+      title: "ls",
+      _meta: {
+        claudeCode: { toolName: "Bash" },
+        jetbrains: { air: { version: 1, commandTitle: "List" } },
+        terminal_info: { terminal_id: "t" },
+      },
+    });
+
+    expect(
+      filter.apply({
+        sessionUpdate: "tool_call_update",
+        toolCallId: "t",
+        _meta: {
+          claudeCode: { toolName: "Bash" },
+          jetbrains: { air: { version: 1, commandTitle: "List" } },
+        },
+      }),
+    ).toBeNull();
+    expect(
+      filter.apply({
+        sessionUpdate: "tool_call_update",
+        toolCallId: "t",
+        status: "completed",
+        _meta: {
+          claudeCode: { toolName: "Bash", toolResponse: { status: "completed" } },
+          terminal_exit: { terminal_id: "t", exit_code: 0, signal: null },
+        },
+      }),
+    ).toEqual({
+      sessionUpdate: "tool_call_update",
+      toolCallId: "t",
+      status: "completed",
+      _meta: {
+        claudeCode: { toolResponse: { status: "completed" } },
+        terminal_exit: { terminal_id: "t", exit_code: 0, signal: null },
+      },
+    });
+  });
+
+  it("never compares appended terminal output", () => {
+    const filter = new ChangedMetaFilter();
+    filter.apply({ sessionUpdate: "tool_call", toolCallId: "t", title: "ls" });
+    const chunk = {
+      sessionUpdate: "tool_call_update" as const,
+      toolCallId: "t",
+      _meta: { terminal_output: { terminal_id: "t", data: "." } },
+    };
+    expect(filter.apply(chunk)).toEqual(chunk);
+    expect(filter.apply(chunk)).toEqual(chunk);
   });
 });
