@@ -45,7 +45,7 @@ export type ToolUpdateMeta = {
     /* The MCP server of an `mcp__*` tool, on a permission request. */
     mcpServer?: { name: string; source: string };
   };
-  /* The AIR client flags of the ACP tool call contract (`docs/acp-tool-call-contract.md`). */
+  /* The AIR client flags of the ACP tool call contract (`docs/air-extensions.md#tool-call-contract`). */
   jetbrains?: {
     air?: {
       version?: number;
@@ -100,7 +100,7 @@ type ResultBlock = ToolResultContext["result"];
 
 /**
  * Turns tool facts into the fields of the standard ACP tool call report, as
- * `docs/acp-tool-call-contract.md` defines: each fact goes in one field.
+ * `docs/air-extensions.md#tool-call-contract` defines: each fact goes in one field.
  *
  * The {@link ToolReporter} of the tool reads the SDK data. The renderer
  * decides the fields from the facts and the {@link ClientCapabilities}. The
