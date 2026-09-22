@@ -19,13 +19,15 @@ Every client gets the standard ACP shape. Each fact goes in exactly one field.
 | Status, title, kind, locations | the field itself, only when it changes |
 
 - An update carries only the fields that changed since the last report of that tool call.
-- Input is never copied into `title` or `_meta`.
+- Input is never copied into `title` or `_meta`, with two exceptions. The `title` of a command, a read, a search,
+  or an MCP call names the command, the path, or the query, because Zed shows the title as that label.
+  `_meta.jetbrains.air.commandTitle` carries the concise description of a shell command for AIR.
 - Some input is what the user reads: the plan to approve, the prompt of a subagent, a question, the description
   of a command. AIR renders `rawInput` itself and declares `rawInputRendering` in
   `initialize.clientCapabilities._meta.jetbrains.air.capabilities`. AIR gets no copy of the input in `content`.
   Every other client gets one display copy of that input in `content`, so Zed keeps its rendering.
 - Output is never copied into `rawOutput` when it is in `content`, and never into `content` when it is in the terminal channel.
-- `title` is a short label. It is not the input and not the output.
+- `title` is a short label. It is not the output.
 
 ## Terminal channel
 
