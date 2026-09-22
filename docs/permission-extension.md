@@ -28,7 +28,7 @@ record and may be ignored by clients that do not render it.
 
 ## Request presentation
 
-The request-level record is placed under `RequestPermissionRequest._meta.permission`:
+The request-level record is placed under `RequestPermissionRequest._meta.jetbrains.air.permission`:
 
 ```json
 {
@@ -44,10 +44,15 @@ The request-level record is placed under `RequestPermissionRequest._meta.permiss
     { "optionId": "reject", "name": "No", "kind": "reject_once" }
   ],
   "_meta": {
-    "permission": {
-      "version": 1,
-      "title": "npm test",
-      "description": "Reason: Needed to verify the change."
+    "jetbrains": {
+      "air": {
+        "version": 1,
+        "permission": {
+          "version": 1,
+          "title": "npm test",
+          "description": "Reason: Needed to verify the change."
+        }
+      }
     }
   }
 }
@@ -70,7 +75,10 @@ with `Reason: `. The SDK `description` operation subtitle is not copied there.
 
 ## Tool-call presentation
 
-The permission request carries the same standard ACP tool information used for normal tool updates:
+For JetBrains AIR, the request `toolCall` carries only `toolCallId`, `title`, and `rawInput`, as the
+[AIR client profile](air-client-profile.md) defines. The client already holds the rest of the tool
+call. For every other client, the permission request carries the same standard ACP tool information
+used for normal tool updates:
 
 - `name` is the SDK tool name (for example `Read` or `mcp__server__tool`), matching the standard
   `name` field on the initial `tool_call` update;
@@ -213,7 +221,7 @@ the default refusal message.
 A client implementing version 1 should:
 
 - render standard ACP tool-call content and locations as the action subject;
-- treat request `_meta.permission.title` and `description` as optional presentation hints;
+- treat request `_meta.jetbrains.air.permission.title` and `description` as optional presentation hints;
 - preserve option ids;
 - ignore unknown `_meta` fields and future feature names;
 - settle the request when its cancellation signal fires.

@@ -64,7 +64,7 @@ describe("session permission updates", () => {
       "reject",
     ]);
     expect(capturedPermissionRequest._meta).toEqual({
-      permission: { version: 1, title: "Ready to code?" },
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "Ready to code?" } } },
     });
     expect(result.updatedPermissions).toEqual([
       { type: "setMode", mode: "default", destination: "session" },

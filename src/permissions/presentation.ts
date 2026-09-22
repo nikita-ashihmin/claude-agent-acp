@@ -3,6 +3,7 @@ import type {
   ToolCallContent,
   ToolCallLocation,
 } from "@agentclientprotocol/sdk";
+import { AIR_PERMISSION_KEY, withAirMeta } from "../air-extension.js";
 import { toolInfoFromToolUse } from "../tools.js";
 
 export interface ClaudePermissionPresentationInput {
@@ -108,17 +109,15 @@ export function buildClaudePermissionPresentation(
     },
     ...(title
       ? {
-          _meta: {
-            permission: {
-              version: 1,
-              title,
-              ...(description ? { description } : {}),
-              // The CLI's own hint, forwarded so a client that can pre-select
-              // an option keeps the decline focused; the option order already
-              // leads with the reject options when this is set.
-              ...(value.defaultToNo === true ? { defaultToNo: true } : {}),
-            },
-          },
+          _meta: withAirMeta(undefined, AIR_PERMISSION_KEY, {
+            version: 1,
+            title,
+            ...(description ? { description } : {}),
+            // The CLI's own hint, forwarded so a client that can pre-select
+            // an option keeps the decline focused; the option order already
+            // leads with the reject options when this is set.
+            ...(value.defaultToNo === true ? { defaultToNo: true } : {}),
+          }),
         }
       : {}),
   };

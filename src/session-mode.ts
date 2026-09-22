@@ -12,6 +12,7 @@ import type {
   PermissionResult,
   Query,
 } from "@anthropic-ai/claude-agent-sdk";
+import { AIR_KIND_KEY, withAirMeta } from "./air-extension.js";
 
 export const MODE_CONFIG_ID = "mode";
 export const AUTO_MODE_FALLBACK: PermissionMode = "acceptEdits";
@@ -289,25 +290,25 @@ export class SessionModeManager<S extends SessionMode> {
         id: "default",
         name: "Manual",
         description: "Always ask before making changes",
-        _meta: { kind: "standard" },
+        _meta: withAirMeta(undefined, AIR_KIND_KEY, "standard"),
       },
       {
         id: "acceptEdits",
         name: "Accept edits",
         description: "Automatically accept all file edits",
-        _meta: { kind: "standard" },
+        _meta: withAirMeta(undefined, AIR_KIND_KEY, "standard"),
       },
       {
         id: "plan",
         name: "Plan",
         description: "Create a plan before making changes",
-        _meta: { kind: "plan" },
+        _meta: withAirMeta(undefined, AIR_KIND_KEY, "plan"),
       },
       {
         id: "auto",
         name: "Auto",
         description: "Claude handles permission decisions",
-        _meta: { kind: "auto_review" },
+        _meta: withAirMeta(undefined, AIR_KIND_KEY, "auto_review"),
       },
     ];
     if (allowBypass) {
@@ -315,7 +316,7 @@ export class SessionModeManager<S extends SessionMode> {
         id: "bypassPermissions",
         name: "Bypass permissions",
         description: "Accepts all permissions",
-        _meta: { kind: "full_access" },
+        _meta: withAirMeta(undefined, AIR_KIND_KEY, "full_access"),
       });
     }
     return modes;

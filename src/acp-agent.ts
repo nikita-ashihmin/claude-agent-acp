@@ -113,8 +113,12 @@ import {
 } from "./native-subagents.js";
 import {
   AIR_ASYNC_TASKS_CAPABILITY,
+  AIR_COMMAND_TITLE_KEY,
   AIR_DIFF_PATCH_CAPABILITY,
+  AIR_GOAL_KEY,
   AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
+  AIR_SKILL_KEY,
+  AIR_SUBAGENT_KEY,
   clientSupportsAirCapability,
   withAirMeta,
 } from "./air-extension.js";
@@ -1268,14 +1272,11 @@ type ProviderConfig = {
 };
 
 export type ToolUpdateMeta = {
-  contextCompaction?: ContextCompactionMetadata;
   claudeCode?: {
     /* The name of the tool that was used in Claude Code. Also carried as the
        standard ACP `name` field on the initial `tool_call`; kept here so every
        `tool_call_update` stays self-describing for clients that key off it. */
     toolName: string;
-    /* A human-readable title supplied by Claude Code for the tool call. */
-    title?: string;
     /* Small structured facts provided by Claude Code. On a PostToolUse update
        only the `status` and `isAsync` markers of the tool_response travel; the
        tool output itself is in the tool-call content. */
@@ -1293,17 +1294,23 @@ export type ToolUpdateMeta = {
     /* Free-text the user supplied when rejecting the tool call, when the
        harness collected any. Only ever present alongside nonExecutionKind. */
     userFeedback?: string;
-    /* Marks Agent/Task tool calls as subagent launches. ACP 1.2 has no
-       standard subagent ToolKind yet, so clients that support nested
-       transcripts need a namespaced marker instead of inferring from
-       `toolName` or the generic `think` kind. */
-    subagent?: true;
-    /* For Skill tool calls: the name of the skill being loaded (e.g. "commits").
-       Lets clients render a "Load skill: <name>" block without parsing the title. */
-    skill?: string;
-    /* For Skill tool calls: absolute path of that skill's SKILL.md, when it could be
-       located on disk. Lets clients turn the rendered skill name into a link to it. */
-    skillPath?: string;
+  };
+  /* The client flags of the AIR client profile (`docs/air-client-profile.md`). */
+  jetbrains?: {
+    air?: {
+      version?: number;
+      /* The concise description of a shell command, kept out of the
+         standard `title`, which clients may use as the command preview. */
+      commandTitle?: string;
+      /* Marks Agent/Task tool calls as subagent launches. ACP has no standard
+         subagent ToolKind yet. */
+      subagent?: true;
+      /* For Skill tool calls: the skill name, and the absolute path of its
+         SKILL.md when it could be located on disk. */
+      skill?: { name: string; path?: string };
+      contextCompaction?: ContextCompactionMetadata;
+      [key: string]: unknown;
+    };
   };
   /* Terminal metadata for Bash tool execution, matching codex-acp's _meta protocol. */
   terminal_info?: {
@@ -2153,21 +2160,24 @@ export class ClaudeAcpAgent {
       // steering extension contract: advertises the `_session/steering` request
       // so clients know they may inject a follow-up into a running turn.
       _meta: {
-        ...airSessionFailureCapabilityMeta(
-          AGENT_FILE_CHANGE_REPORT_CAPABILITY,
-          AIR_NATIVE_SUBAGENT_SESSIONS_CAPABILITY,
-          AIR_ASYNC_TASKS_CAPABILITY,
-          AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
-          AIR_DIFF_PATCH_CAPABILITY,
+        ...withAirMeta(
+          airSessionFailureCapabilityMeta(
+            AGENT_FILE_CHANGE_REPORT_CAPABILITY,
+            AIR_NATIVE_SUBAGENT_SESSIONS_CAPABILITY,
+            AIR_ASYNC_TASKS_CAPABILITY,
+            AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
+            AIR_DIFF_PATCH_CAPABILITY,
+          ),
+          AIR_GOAL_KEY,
+          {
+            version: GOAL_EXTENSION_VERSION,
+            controlMethod: GOAL_CONTROL_METHOD,
+            actions: [...GOAL_ACTIONS],
+          } satisfies GoalCapability,
         ),
         steering: {
           supported: true,
         },
-        goal: {
-          version: GOAL_EXTENSION_VERSION,
-          controlMethod: GOAL_CONTROL_METHOD,
-          actions: [...GOAL_ACTIONS],
-        } satisfies GoalCapability,
       },
     };
   }
@@ -2938,7 +2948,7 @@ export class ClaudeAcpAgent {
       sessionId,
       update: {
         sessionUpdate: "session_info_update",
-        _meta: { goal },
+        _meta: withAirMeta(undefined, AIR_GOAL_KEY, goal),
       },
     });
   }
@@ -3203,7 +3213,7 @@ export class ClaudeAcpAgent {
     const sendUpdate = async (notification: AcpSessionNotification) => {
       const { update } = notification;
       const claudeMeta = update._meta?.claudeCode as
-        { parentToolUseId?: string | null; subagent?: true; toolName?: string } | undefined;
+        { parentToolUseId?: string | null; toolName?: string } | undefined;
       const toolCallId =
         update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update"
           ? update.toolCallId
@@ -9332,17 +9342,17 @@ function shouldEmitToolCall(toolName: string): boolean {
   return toolName !== "TodoWrite" && !isTaskTool(toolName);
 }
 
-/** Build the Claude Code-specific metadata for a tool call. Shell (Bash and
- *  PowerShell) descriptions are kept out of ACP's standard `title`, which
- *  clients may use as the shell command preview, while still giving clients
- *  access to Claude's concise human-readable title. */
-function claudeCodeMetaFromToolUse(
+/** Build the `_meta` of a tool call report: the tool name, and the AIR client
+ *  flags. Shell (Bash and PowerShell) descriptions are kept out of ACP's
+ *  standard `title`, which clients may use as the shell command preview, and
+ *  travel as `_meta.jetbrains.air.commandTitle` instead. */
+function toolUseMeta(
   toolUse: {
     name: string;
     input?: unknown;
   },
   cwd?: string,
-): NonNullable<ToolUpdateMeta["claudeCode"]> {
+): ToolUpdateMeta {
   const description =
     (toolUse.name === "Bash" || toolUse.name === "PowerShell") &&
     toolUse.input !== null &&
@@ -9356,13 +9366,18 @@ function claudeCodeMetaFromToolUse(
       ? (toolUse.input as { skill?: string } | null | undefined)?.skill
       : undefined;
   const skillPath = skillName ? resolveSkillPath(skillName, cwd) : undefined;
-  return {
-    toolName: toolUse.name,
-    ...(description ? { title: description } : {}),
-    ...((toolUse.name === "Agent" || toolUse.name === "Task") && { subagent: true as const }),
-    ...(skillName ? { skill: skillName } : {}),
-    ...(skillPath ? { skillPath } : {}),
-  };
+  let meta: Record<string, unknown> = { claudeCode: { toolName: toolUse.name } };
+  if (description) meta = withAirMeta(meta, AIR_COMMAND_TITLE_KEY, description);
+  if (toolUse.name === "Agent" || toolUse.name === "Task") {
+    meta = withAirMeta(meta, AIR_SUBAGENT_KEY, true);
+  }
+  if (skillName) {
+    meta = withAirMeta(meta, AIR_SKILL_KEY, {
+      name: skillName,
+      ...(skillPath ? { path: skillPath } : {}),
+    });
+  }
+  return meta as ToolUpdateMeta;
 }
 
 /**
@@ -9477,7 +9492,7 @@ function toolCallNotification(
 ): SessionNotification["update"] {
   if (refine) {
     return {
-      _meta: { claudeCode: claudeCodeMetaFromToolUse(toolUse, cwd) } satisfies ToolUpdateMeta,
+      _meta: toolUseMeta(toolUse, cwd),
       toolCallId: toolUse.id,
       sessionUpdate: "tool_call_update",
       rawInput,
@@ -9486,7 +9501,7 @@ function toolCallNotification(
   }
   return {
     _meta: {
-      claudeCode: claudeCodeMetaFromToolUse(toolUse, cwd),
+      ...toolUseMeta(toolUse, cwd),
       ...((toolUse.name === "Bash" || toolUse.name === "PowerShell") && supportsTerminalOutput
         ? { terminal_info: { terminal_id: toolUse.id } }
         : {}),
@@ -9522,9 +9537,7 @@ function streamedInputRefinement(
     cwd,
   );
   return {
-    _meta: {
-      claudeCode: claudeCodeMetaFromToolUse({ ...toolUse, input }, cwd),
-    } satisfies ToolUpdateMeta,
+    _meta: toolUseMeta({ ...toolUse, input }, cwd),
     toolCallId: toolUse.id,
     sessionUpdate: "tool_call_update",
     rawInput: input,

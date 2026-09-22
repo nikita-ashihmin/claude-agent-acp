@@ -1,6 +1,6 @@
 # Goal extension
 
-This document defines a provider-neutral experimental ACP extension implemented by `claude-agent-acp`. It is intentionally shaped like a possible future first-class ACP API: implementations publish `_meta.goal`, not provider-specific metadata such as `_meta.claudeCode.goal`.
+This document defines an experimental ACP extension implemented by `claude-agent-acp`. It is shaped like a possible future first-class ACP API, and the payload has no provider-specific fields. The payload travels under `_meta.jetbrains.air.goal`, as the [AIR client profile](air-client-profile.md) defines.
 
 ## Capability negotiation
 
@@ -9,10 +9,15 @@ An agent advertises support in its `initialize` response:
 ```json
 {
   "_meta": {
-    "goal": {
-      "version": 1,
-      "controlMethod": "_session/goal",
-      "actions": ["clear"]
+    "jetbrains": {
+      "air": {
+        "version": 1,
+        "goal": {
+          "version": 1,
+          "controlMethod": "_session/goal",
+          "actions": ["clear"]
+        }
+      }
     }
   }
 }
@@ -22,7 +27,7 @@ An agent advertises support in its `initialize` response:
 
 ## Session state
 
-The current snapshot is published in `session_info_update._meta.goal`. Clearing a goal publishes `goal: null`.
+The current snapshot is published in `session_info_update._meta.jetbrains.air.goal`. Clearing a goal publishes `goal: null`.
 
 ```json
 {

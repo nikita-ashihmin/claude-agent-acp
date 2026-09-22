@@ -127,7 +127,7 @@ describe("Claude permission ACP v1 presentation", () => {
 
     expect(presentation.toolCall.title).toBe("Approve Plan");
     expect(presentation._meta).toEqual({
-      permission: { version: 1, title: "Ready to code?" },
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "Ready to code?" } } },
     });
   });
 
@@ -139,7 +139,9 @@ describe("Claude permission ACP v1 presentation", () => {
       defaultToNo: true,
     });
     expect(presentation._meta).toEqual({
-      permission: { version: 1, title: "rm -rf build", defaultToNo: true },
+      jetbrains: {
+        air: { version: 1, permission: { version: 1, title: "rm -rf build", defaultToNo: true } },
+      },
     });
     expect(
       buildClaudePermissionPresentation({
@@ -148,7 +150,9 @@ describe("Claude permission ACP v1 presentation", () => {
         toolUseID: "tool-1",
         defaultToNo: false,
       })._meta,
-    ).toEqual({ permission: { version: 1, title: "rm -rf build" } });
+    ).toEqual({
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "rm -rf build" } } },
+    });
   });
 
   it("keeps command descriptions and decision reasons in their presentation fields", () => {
@@ -162,7 +166,9 @@ describe("Claude permission ACP v1 presentation", () => {
       decisionReason: "Needed to verify the change.",
     });
     expect(presentation._meta).toMatchObject({
-      permission: { description: "Reason: Needed to verify the change." },
+      jetbrains: {
+        air: { version: 1, permission: { description: "Reason: Needed to verify the change." } },
+      },
     });
     expect(presentation.toolCall).toMatchObject({
       toolCallId: "tool-1",
@@ -189,7 +195,9 @@ describe("Claude permission ACP v1 presentation", () => {
         toolUseID: `tool-${toolName}`,
       });
 
-      expect(presentation._meta).toEqual({ permission: { version: 1, title: "Terminal" } });
+      expect(presentation._meta).toEqual({
+        jetbrains: { air: { version: 1, permission: { version: 1, title: "Terminal" } } },
+      });
       expect(presentation.toolCall).toMatchObject({ title: "Terminal", rawInput: input });
     },
   );
@@ -207,7 +215,9 @@ describe("Claude permission ACP v1 presentation", () => {
         toolUseID: `tool-${toolName}`,
       });
 
-      expect(presentation._meta).toMatchObject({ permission: { title: command } });
+      expect(presentation._meta).toMatchObject({
+        jetbrains: { air: { version: 1, permission: { title: command } } },
+      });
       expect(presentation.toolCall.title).toBe(command);
     },
   );
@@ -230,7 +240,9 @@ describe("Claude permission ACP v1 presentation", () => {
         supportsTerminalOutput: true,
       });
 
-      expect(presentation._meta).toEqual({ permission: { version: 1, title: command } });
+      expect(presentation._meta).toEqual({
+        jetbrains: { air: { version: 1, permission: { version: 1, title: command } } },
+      });
       expect(presentation.toolCall.title).toBe(command);
       expect(presentation.toolCall.rawInput).toBe(input);
     });
@@ -246,7 +258,9 @@ describe("Claude permission ACP v1 presentation", () => {
     });
 
     expect(presentation._meta).toEqual({
-      permission: { version: 1, title: "Fetch https://example.com/docs" },
+      jetbrains: {
+        air: { version: 1, permission: { version: 1, title: "Fetch https://example.com/docs" } },
+      },
     });
     expect(presentation.toolCall).toMatchObject({
       kind: "fetch",
@@ -266,9 +280,14 @@ describe("Claude permission ACP v1 presentation", () => {
     });
 
     expect(presentation._meta).toEqual({
-      permission: {
-        version: 1,
-        title: 'Search "Agent Client Protocol ACP specification subagents v2"',
+      jetbrains: {
+        air: {
+          version: 1,
+          permission: {
+            version: 1,
+            title: 'Search "Agent Client Protocol ACP specification subagents v2"',
+          },
+        },
       },
     });
     expect(presentation.toolCall.title).toBe(
@@ -290,7 +309,7 @@ describe("Claude permission ACP v1 presentation", () => {
         toolUseID: `tool-${toolName}`,
         displayName: toolName,
       })._meta,
-    ).toEqual({ permission: { version: 1, title } });
+    ).toEqual({ jetbrains: { air: { version: 1, permission: { version: 1, title } } } });
   });
 
   it("reuses tool-call titles and temporarily exposes decisionReason", () => {
@@ -304,10 +323,15 @@ describe("Claude permission ACP v1 presentation", () => {
         decisionReason: "Needed to inspect the dependency.",
       })._meta,
     ).toEqual({
-      permission: {
-        version: 1,
-        title: "Read /work/a.ts",
-        description: "Reason: Needed to inspect the dependency.",
+      jetbrains: {
+        air: {
+          version: 1,
+          permission: {
+            version: 1,
+            title: "Read /work/a.ts",
+            description: "Reason: Needed to inspect the dependency.",
+          },
+        },
       },
     });
     expect(
@@ -319,9 +343,14 @@ describe("Claude permission ACP v1 presentation", () => {
         description: "Read a.ts",
       })._meta,
     ).toEqual({
-      permission: {
-        version: 1,
-        title: "Read /work/a.ts",
+      jetbrains: {
+        air: {
+          version: 1,
+          permission: {
+            version: 1,
+            title: "Read /work/a.ts",
+          },
+        },
       },
     });
     expect(
@@ -332,10 +361,15 @@ describe("Claude permission ACP v1 presentation", () => {
         decisionReason: "internal_policy_code",
       })._meta,
     ).toEqual({
-      permission: {
-        version: 1,
-        title: "Read File",
-        description: "Reason: internal_policy_code",
+      jetbrains: {
+        air: {
+          version: 1,
+          permission: {
+            version: 1,
+            title: "Read File",
+            description: "Reason: internal_policy_code",
+          },
+        },
       },
     });
   });
@@ -363,7 +397,9 @@ describe("Claude permission ACP v1 presentation", () => {
         description,
       });
 
-      expect(presentation._meta?.permission).not.toHaveProperty("description");
+      expect((presentation._meta as any)?.jetbrains?.air?.permission).not.toHaveProperty(
+        "description",
+      );
     },
   );
 
@@ -388,7 +424,7 @@ describe("Claude permission ACP v1 presentation", () => {
     });
     expect(presentation.toolCall).toMatchObject({ kind: "other", name: "mcp__demo__deploy" });
     expect(presentation._meta).toEqual({
-      permission: { version: 1, title: "mcp__demo__deploy" },
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "mcp__demo__deploy" } } },
     });
   });
 });

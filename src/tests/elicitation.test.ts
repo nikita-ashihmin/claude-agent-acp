@@ -265,9 +265,8 @@ describe("askUserQuestionsToCreateRequest", () => {
       type: "string",
       title: "Other",
       _meta: {
-        _askUserQuestionCustomAnswer: {
-          questionId: "question_0",
-          isCustomAnswer: true,
+        jetbrains: {
+          air: { customAnswer: { questionId: "question_0", isCustomAnswer: true } },
         },
       },
     });
@@ -275,9 +274,8 @@ describe("askUserQuestionsToCreateRequest", () => {
       type: "string",
       title: "Other",
       _meta: {
-        _askUserQuestionCustomAnswer: {
-          questionId: "question_1",
-          isCustomAnswer: true,
+        jetbrains: {
+          air: { customAnswer: { questionId: "question_1", isCustomAnswer: true } },
         },
       },
     });

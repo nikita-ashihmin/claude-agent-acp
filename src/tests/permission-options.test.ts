@@ -589,7 +589,9 @@ describe("Claude permission options and response mapping", () => {
         toolUseID: "tool-computer-use",
       })._meta,
     ).toEqual({
-      permission: { version: 1, title: "mcp__computer-use__screenshot" },
+      jetbrains: {
+        air: { version: 1, permission: { version: 1, title: "mcp__computer-use__screenshot" } },
+      },
     });
   });
 

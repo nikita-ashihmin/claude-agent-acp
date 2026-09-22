@@ -1,4 +1,5 @@
 import type { AcpSessionNotification, SubagentState } from "./acp-subagents.js";
+import { AIR_SUBAGENT_KEY, airExtensionMeta } from "./air-extension.js";
 
 export type NativeSubagent = {
   sessionId: string;
@@ -85,7 +86,7 @@ export class NativeSubagentRuntime {
   ): Promise<AcpSessionNotification | null> {
     const { update } = notification;
     const claudeMeta = update._meta?.claudeCode as
-      { parentToolUseId?: string | null; subagent?: true; toolName?: string } | undefined;
+      { parentToolUseId?: string | null; toolName?: string } | undefined;
     const isControl = isNativeSubagentControlUpdate(update);
 
     if (!this.enabled) return notification;
@@ -387,8 +388,11 @@ export function isNativeSubagentControlUpdate(
   if (update.sessionUpdate !== "tool_call" && update.sessionUpdate !== "tool_call_update") {
     return false;
   }
-  const claudeMeta = update._meta?.claudeCode as { subagent?: true; toolName?: string } | undefined;
-  return claudeMeta?.subagent === true || isNativeSubagentControlTool(claudeMeta?.toolName);
+  const claudeMeta = update._meta?.claudeCode as { toolName?: string } | undefined;
+  return (
+    airExtensionMeta(update._meta)?.[AIR_SUBAGENT_KEY] === true ||
+    isNativeSubagentControlTool(claudeMeta?.toolName)
+  );
 }
 
 export function isNativeSubagentControlTool(toolName: unknown): boolean {
@@ -466,8 +470,14 @@ function ordinaryToolMeta(
       (value) => (value?.claudeCode as Record<string, unknown> | null | undefined) ?? {},
     ),
   );
-  delete claudeCode.subagent;
-  return { ...merged, claudeCode };
+  const result: Record<string, unknown> = { ...merged, claudeCode };
+  const air = airExtensionMeta(merged);
+  if (air && AIR_SUBAGENT_KEY in air) {
+    const rest = { ...air };
+    delete rest[AIR_SUBAGENT_KEY];
+    result.jetbrains = { ...(merged.jetbrains as Record<string, unknown>), air: rest };
+  }
+  return result;
 }
 
 function subagentDisplayName(

@@ -4,6 +4,16 @@ export const AIR_SESSION_FAILURE_CAPABILITY = "sessionFailure";
 export const AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY = "recommendedValue";
 export const AIR_DIFF_PATCH_CAPABILITY = "diffPatch";
 
+/** The `_meta.jetbrains.air` keys that the AIR client profile defines. */
+export const AIR_COMMAND_TITLE_KEY = "commandTitle";
+export const AIR_SUBAGENT_KEY = "subagent";
+export const AIR_SKILL_KEY = "skill";
+export const AIR_CONTEXT_COMPACTION_KEY = "contextCompaction";
+export const AIR_GOAL_KEY = "goal";
+export const AIR_KIND_KEY = "kind";
+export const AIR_PERMISSION_KEY = "permission";
+export const AIR_CUSTOM_ANSWER_KEY = "customAnswer";
+
 const JETBRAINS_META_KEY = "jetbrains";
 const AIR_META_KEY = "air";
 const AIR_EXTENSION_VERSION_KEY = "version";
@@ -48,6 +58,16 @@ export function airExtensionMeta(meta: unknown): Record<string, unknown> | undef
   return air && typeof air === "object" && !Array.isArray(air)
     ? (air as Record<string, unknown>)
     : undefined;
+}
+
+/**
+ * Whether the peer is the JetBrains AIR client.
+ *
+ * AIR sends `_meta.jetbrains.air` in its client capabilities. The object
+ * alone decides: AIR is not released yet, so there is no older AIR shape.
+ */
+export function isAirClient(capabilities: unknown): boolean {
+  return airExtensionMeta(asRecord(capabilities)._meta) !== undefined;
 }
 
 /**

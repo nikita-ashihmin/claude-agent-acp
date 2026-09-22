@@ -402,13 +402,12 @@ export function contextCompactionMetadataFromBoundary(compactMetadata: {
   };
 }
 
+/** A client detects the synthetic compaction tool call by
+ *  `_meta.jetbrains.air.contextCompaction`, so no tool name travels. */
 function compactionToolMeta(
   metadata: Omit<ContextCompactionMetadata, "version"> = {},
 ): Record<string, unknown> {
-  return {
-    ...createContextCompactionMeta(metadata),
-    claudeCode: { toolName: "compact" },
-  };
+  return createContextCompactionMeta(metadata);
 }
 
 function compactionErrorContent(error: string) {

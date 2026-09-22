@@ -107,6 +107,26 @@ describe("ToolCallFieldTracker", () => {
     expect(tracker.apply({ ...delta })).toBe(true);
   });
 
+  it("merges _meta.jetbrains.air keys like claudeCode keys", () => {
+    const tracker = new ToolCallFieldTracker();
+    const meta = {
+      claudeCode: { toolName: "Bash" },
+      jetbrains: { air: { version: 1, commandTitle: "List files" } },
+    };
+    tracker.apply({ sessionUpdate: "tool_call", toolCallId: "t", title: "ls", _meta: meta });
+
+    expect(
+      tracker.apply({ sessionUpdate: "tool_call_update", toolCallId: "t", _meta: meta } as any),
+    ).toBe(false);
+    expect(
+      tracker.apply({
+        sessionUpdate: "tool_call_update",
+        toolCallId: "t",
+        _meta: { ...meta, jetbrains: { air: { version: 1, commandTitle: "List all files" } } },
+      } as any),
+    ).toBe(true);
+  });
+
   it("keeps pinned content until the final result replaces it", () => {
     const tracker = new ToolCallFieldTracker();
     const patch = [{ type: "diff" as const, path: "/a.ts", oldText: null, newText: "" }];

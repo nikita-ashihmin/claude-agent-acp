@@ -154,26 +154,31 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-1",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-1",
         status: "completed",
         summary: [{ type: "text", text: "Retained." }],
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-1",
         status: "completed",
         _meta: {
-          contextCompaction: {
-            version: 1,
-            trigger: "manual",
-            preTokens: 100,
-            postTokens: 10,
-            durationMs: 5,
+          jetbrains: {
+            air: {
+              version: 1,
+              contextCompaction: {
+                version: 1,
+                trigger: "manual",
+                preTokens: 100,
+                postTokens: 10,
+                durationMs: 5,
+              },
+            },
           },
         },
       },
@@ -259,7 +264,14 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
         compactionId: "cmp-boundary",
         status: "completed",
         summary: [{ type: "text", text: "Only terminal." }],
-        _meta: { contextCompaction: { version: 1, trigger: "automatic", preTokens: 50 } },
+        _meta: {
+          jetbrains: {
+            air: {
+              version: 1,
+              contextCompaction: { version: 1, trigger: "automatic", preTokens: 50 },
+            },
+          },
+        },
       },
     ]);
   });
@@ -274,7 +286,7 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-boundary",
         status: "completed",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
     ]);
   });
@@ -291,7 +303,11 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
       compactionId: "cmp-1",
       status: "failed",
       error: "summary rejected",
-      _meta: { contextCompaction: { version: 1, error: "summary rejected" } },
+      _meta: {
+        jetbrains: {
+          air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
+        },
+      },
     });
     expect(compaction.consumeDuplicateErrorOutput("summary rejected\n")).toBe(true);
     expect(compaction.consumeDuplicateErrorOutput("summary rejected")).toBe(false);
@@ -321,7 +337,7 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-1",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_summary_chunk",
@@ -337,7 +353,7 @@ describe("ContextCompactionLifecycle (compaction_update)", () => {
         sessionUpdate: "compaction_update",
         compactionId: "cmp-1",
         status: "completed",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
     ]);
   });
@@ -403,19 +419,19 @@ describe("ContextCompactionLifecycle (tool_call)", () => {
         title: "Compact conversation",
         kind: "think",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 }, claudeCode: { toolName: "compact" } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "tool_call_update",
         toolCallId: "compact-start",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 }, claudeCode: { toolName: "compact" } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "tool_call_update",
         toolCallId: "compact-start",
         status: "completed",
-        _meta: { contextCompaction: { version: 1 }, claudeCode: { toolName: "compact" } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
     ]);
   });
@@ -448,8 +464,9 @@ describe("ContextCompactionLifecycle (tool_call)", () => {
         ],
         rawOutput: { error: "summary rejected" },
         _meta: {
-          contextCompaction: { version: 1, error: "summary rejected" },
-          claudeCode: { toolName: "compact" },
+          jetbrains: {
+            air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
+          },
         },
       },
       {
@@ -457,8 +474,9 @@ describe("ContextCompactionLifecycle (tool_call)", () => {
         toolCallId: "compact-failed",
         rawOutput: { trigger: "manual", preTokens: 3 },
         _meta: {
-          contextCompaction: { version: 1, trigger: "manual", preTokens: 3 },
-          claudeCode: { toolName: "compact" },
+          jetbrains: {
+            air: { version: 1, contextCompaction: { version: 1, trigger: "manual", preTokens: 3 } },
+          },
         },
       },
     ]);

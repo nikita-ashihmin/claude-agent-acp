@@ -597,14 +597,14 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("ACP subprocess integration"
       .filter(
         (update) =>
           (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
-          update._meta?.contextCompaction,
+          (update._meta as any)?.jetbrains?.air?.contextCompaction,
       );
     expect(compactionUpdates[0]).toMatchObject({
       sessionUpdate: "tool_call",
       title: "Compact conversation",
       kind: "think",
       status: "in_progress",
-      _meta: { contextCompaction: { version: 1 } },
+      _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
     });
     // The terminal status lands on the compact_result frame; the boundary that
     // follows only enriches the call with token counts (no status field).
@@ -612,11 +612,13 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("ACP subprocess integration"
     expect(terminal.at(-1)).toMatchObject({
       sessionUpdate: "tool_call_update",
       status: "completed",
-      _meta: { contextCompaction: { version: 1 } },
+      _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
     });
     expect(compactionUpdates.at(-1)).toMatchObject({
       sessionUpdate: "tool_call_update",
-      _meta: { contextCompaction: { version: 1, trigger: "manual" } },
+      _meta: {
+        jetbrains: { air: { version: 1, contextCompaction: { version: 1, trigger: "manual" } } },
+      },
     });
   }, 90000);
 
@@ -645,7 +647,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("ACP subprocess integration"
       sessionUpdates.some(
         (update) =>
           (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
-          update._meta?.contextCompaction,
+          (update._meta as any)?.jetbrains?.air?.contextCompaction,
       ),
     ).toBe(false);
     const compactionUpdates = sessionUpdates.filter(
@@ -653,7 +655,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("ACP subprocess integration"
     );
     expect(compactionUpdates[0]).toMatchObject({
       status: "in_progress",
-      _meta: { contextCompaction: { version: 1 } },
+      _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
     });
     const compactionId = compactionUpdates[0].compactionId;
     expect(compactionUpdates.every((update) => update.compactionId === compactionId)).toBe(true);
@@ -673,9 +675,13 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("ACP subprocess integration"
     // The boundary enriches the entity with token counts.
     expect(compactionUpdates.at(-1)).toMatchObject({
       status: "completed",
-      _meta: { contextCompaction: { version: 1, trigger: "manual" } },
+      _meta: {
+        jetbrains: { air: { version: 1, contextCompaction: { version: 1, trigger: "manual" } } },
+      },
     });
-    expect((compactionUpdates.at(-1)!._meta as any).contextCompaction.preTokens).toBeGreaterThan(0);
+    expect(
+      (compactionUpdates.at(-1)!._meta as any).jetbrains.air.contextCompaction.preTokens,
+    ).toBeGreaterThan(0);
   }, 90000);
 
   // Regression guard for the SDK's AskUserQuestion routing. The built-in
@@ -844,10 +850,8 @@ describe("tool conversions", () => {
       expect(notifications[0]?.update).toMatchObject({
         sessionUpdate: "tool_call",
         _meta: {
-          claudeCode: {
-            toolName: name,
-            subagent: true,
-          },
+          claudeCode: { toolName: name },
+          jetbrains: { air: { subagent: true } },
         },
       });
     }
@@ -871,11 +875,8 @@ describe("tool conversions", () => {
     expect(nestedAgent[0]?.update).toMatchObject({
       sessionUpdate: "tool_call",
       _meta: {
-        claudeCode: {
-          toolName: "Agent",
-          subagent: true,
-          parentToolUseId: "outer-agent",
-        },
+        claudeCode: { toolName: "Agent", parentToolUseId: "outer-agent" },
+        jetbrains: { air: { subagent: true } },
       },
     });
   });
@@ -3582,7 +3583,7 @@ describe("permission request cancellation", () => {
       { kind: "reject_once", name: "No", optionId: "reject" },
     ]);
     expect(request?._meta).toEqual({
-      permission: { version: 1, title: "ls" },
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "ls" } } },
     });
   });
 
@@ -3702,10 +3703,15 @@ describe("permission request cancellation", () => {
     });
 
     expect(request?._meta).toEqual({
-      permission: {
-        version: 1,
-        title: "Read /outside/a.ts",
-        description: "Reason: Needed to inspect the dependency.",
+      jetbrains: {
+        air: {
+          version: 1,
+          permission: {
+            version: 1,
+            title: "Read /outside/a.ts",
+            description: "Reason: Needed to inspect the dependency.",
+          },
+        },
       },
     });
     expect(request?.toolCall).toMatchObject({
@@ -3914,7 +3920,8 @@ describe("tool_call emitted before permission request", () => {
       status: "pending",
       title: "git diff",
       _meta: {
-        claudeCode: { toolName: "Bash", title: "Show current diff" },
+        claudeCode: { toolName: "Bash" },
+        jetbrains: { air: { commandTitle: "Show current diff" } },
       },
     });
     expect(session.emittedToolCalls.has("tool-1")).toBe(true);
@@ -3939,7 +3946,8 @@ describe("tool_call emitted before permission request", () => {
       toolCallId: "tool-1",
       title: "Get-ChildItem",
       _meta: {
-        claudeCode: { toolName: "PowerShell", title: "List files" },
+        claudeCode: { toolName: "PowerShell" },
+        jetbrains: { air: { commandTitle: "List files" } },
       },
     });
   });
@@ -4303,7 +4311,9 @@ describe("canUseTool in bypassPermissions mode", () => {
     } as any);
 
     expect(request?.options.map((option) => option.optionId)).toEqual(["allow-once", "reject"]);
-    expect(request?._meta).toEqual({ permission: { version: 1, title: "rm -rf build" } });
+    expect(request?._meta).toEqual({
+      jetbrains: { air: { version: 1, permission: { version: 1, title: "rm -rf build" } } },
+    });
   });
 
   it("leads with the reject option and forwards the hint when the CLI defaults to no", async () => {
@@ -4339,7 +4349,9 @@ describe("canUseTool in bypassPermissions mode", () => {
       "allow_always",
     ]);
     expect(request?._meta).toEqual({
-      permission: { version: 1, title: "rm -rf build", defaultToNo: true },
+      jetbrains: {
+        air: { version: 1, permission: { version: 1, title: "rm -rf build", defaultToNo: true } },
+      },
     });
     expect(result).toMatchObject({ behavior: "deny" });
   });
@@ -5745,7 +5757,10 @@ describe("native subagent eager tool ownership", () => {
         toolCallId: "toolu_agent",
         status: "completed",
         rawInput: { description: "Investigate", prompt: "Find the bug" },
-        _meta: { claudeCode: { toolName: "Agent", subagent: true } },
+        _meta: {
+          claudeCode: { toolName: "Agent" },
+          jetbrains: { air: { version: 1, subagent: true } },
+        },
       },
     } as AcpSessionNotification;
 
@@ -6354,20 +6369,28 @@ describe("stop reason propagation", () => {
       update: {
         sessionUpdate: "session_info_update",
         _meta: {
-          goal: {
-            objective: "Finish the migration",
-            status: "active",
-            iterations: 3,
-            lastReason: "Tests still need work",
-            createdAt: 1710000000123,
-            controlMethod: GOAL_CONTROL_METHOD,
+          jetbrains: {
+            air: {
+              version: 1,
+              goal: {
+                objective: "Finish the migration",
+                status: "active",
+                iterations: 3,
+                lastReason: "Tests still need work",
+                createdAt: 1710000000123,
+                controlMethod: GOAL_CONTROL_METHOD,
+              },
+            },
           },
         },
       },
     });
     expect(updates).toContainEqual({
       sessionId: "test-session",
-      update: { sessionUpdate: "session_info_update", _meta: { goal: null } },
+      update: {
+        sessionUpdate: "session_info_update",
+        _meta: { jetbrains: { air: { version: 1, goal: null } } },
+      },
     });
     expect(updates.some((notification) => notification.update?._meta?.claudeCode?.goal)).toBe(
       false,
@@ -6405,10 +6428,15 @@ describe("stop reason propagation", () => {
         update: {
           sessionUpdate: "session_info_update",
           _meta: {
-            goal: {
-              objective: "Finish the migration",
-              status: "active",
-              controlMethod: GOAL_CONTROL_METHOD,
+            jetbrains: {
+              air: {
+                version: 1,
+                goal: {
+                  objective: "Finish the migration",
+                  status: "active",
+                  controlMethod: GOAL_CONTROL_METHOD,
+                },
+              },
             },
           },
         },
@@ -6476,7 +6504,7 @@ describe("stop reason propagation", () => {
     ).rejects.toBeDefined();
 
     const goalUpdates = updates
-      .map(({ update }) => update._meta?.goal)
+      .map(({ update }) => update._meta?.jetbrains?.air?.goal)
       .filter((goal) => goal !== undefined);
     expect(goalUpdates.at(-2)).toEqual(
       expect.objectContaining({ objective: "Replacement", status: "active" }),
@@ -8688,6 +8716,7 @@ describe("logout", () => {
         "recommendedValue",
         "diffPatch",
       ],
+      goal: { version: 1, controlMethod: GOAL_CONTROL_METHOD, actions: ["set", "clear"] },
     });
   });
 
@@ -8708,6 +8737,7 @@ describe("logout", () => {
         "recommendedValue",
         "diffPatch",
       ],
+      goal: { version: 1, controlMethod: GOAL_CONTROL_METHOD, actions: ["set", "clear"] },
     });
   });
 });
@@ -10280,14 +10310,18 @@ describe("usage_update computation", () => {
         durationMs: 2500,
       },
       _meta: {
-        contextCompaction: {
-          version: 1,
-          trigger: "automatic",
-          preTokens: 180000,
-          postTokens: 12345,
-          durationMs: 2500,
+        jetbrains: {
+          air: {
+            version: 1,
+            contextCompaction: {
+              version: 1,
+              trigger: "automatic",
+              preTokens: 180000,
+              postTokens: 12345,
+              durationMs: 2500,
+            },
+          },
         },
-        claudeCode: { toolName: "compact" },
       },
     });
   });
@@ -11281,8 +11315,7 @@ describe("assembled assistant text fallback", () => {
       kind: "think",
       status: "in_progress",
       _meta: {
-        contextCompaction: { version: 1 },
-        claudeCode: { toolName: "compact" },
+        jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } },
       },
     });
   });
@@ -11348,8 +11381,9 @@ describe("assembled assistant text fallback", () => {
       status: "failed",
       rawOutput: { error: "summary rejected" },
       _meta: {
-        contextCompaction: { version: 1, error: "summary rejected" },
-        claudeCode: { toolName: "compact" },
+        jetbrains: {
+          air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
+        },
       },
     });
     expect(messageChunkTexts(updates)).toEqual(["additional diagnostic"]);
@@ -11476,7 +11510,7 @@ describe("assembled assistant text fallback", () => {
       .some(
         (update) =>
           (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
-          update._meta?.contextCompaction,
+          (update._meta as any)?.jetbrains?.air?.contextCompaction,
       );
   }
 
@@ -11508,25 +11542,30 @@ describe("assembled assistant text fallback", () => {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "completed",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "completed",
         _meta: {
-          contextCompaction: {
-            version: 1,
-            trigger: "manual",
-            preTokens: 180000,
-            postTokens: 12345,
-            durationMs: 2500,
+          jetbrains: {
+            air: {
+              version: 1,
+              contextCompaction: {
+                version: 1,
+                trigger: "manual",
+                preTokens: 180000,
+                postTokens: 12345,
+                durationMs: 2500,
+              },
+            },
           },
         },
       },
@@ -11569,14 +11608,18 @@ describe("assembled assistant text fallback", () => {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "failed",
         error: "summary rejected",
-        _meta: { contextCompaction: { version: 1, error: "summary rejected" } },
+        _meta: {
+          jetbrains: {
+            air: { version: 1, contextCompaction: { version: 1, error: "summary rejected" } },
+          },
+        },
       },
     ]);
     expect(messageChunkTexts(updates)).toEqual(["additional diagnostic"]);
@@ -11639,7 +11682,7 @@ describe("assembled assistant text fallback", () => {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "in_progress",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
       {
         sessionUpdate: "compaction_summary_chunk",
@@ -11650,7 +11693,7 @@ describe("assembled assistant text fallback", () => {
         sessionUpdate: "compaction_update",
         compactionId: "compact-start",
         status: "completed",
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
     ]);
     expect(JSON.stringify(updates)).not.toContain("child summary");
@@ -11685,7 +11728,7 @@ describe("assembled assistant text fallback", () => {
         compactionId: "compact-summary",
         status: "completed",
         summary: [{ type: "text", text: "1. Primary Request and Intent:\n   Count upward." }],
-        _meta: { contextCompaction: { version: 1 } },
+        _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
       },
     ]);
 
@@ -11792,8 +11835,7 @@ describe("assembled assistant text fallback", () => {
       kind: "think",
       status: "completed",
       _meta: {
-        contextCompaction: { version: 1 },
-        claudeCode: { toolName: "compact" },
+        jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } },
       },
     });
     expect(messageChunkTexts(updates)).toEqual([]);
@@ -15815,7 +15857,7 @@ describe("turn steering (_session/steering)", () => {
     expect((response._meta as any)?.steering).toEqual({
       supported: true,
     });
-    expect((response._meta as any)?.goal).toEqual({
+    expect((response._meta as any)?.jetbrains?.air?.goal).toEqual({
       version: 1,
       controlMethod: GOAL_CONTROL_METHOD,
       actions: ["set", "clear"],
@@ -15893,12 +15935,12 @@ describe("turn steering (_session/steering)", () => {
       sessionId: "test-session",
       update: {
         sessionUpdate: "session_info_update",
-        _meta: { goal: null },
+        _meta: { jetbrains: { air: { version: 1, goal: null } } },
       },
     });
     await expect(runningGoal).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
     const goalUpdates = updates
-      .map(({ update }) => update._meta?.goal)
+      .map(({ update }) => update._meta?.jetbrains?.air?.goal)
       .filter((goal) => goal !== undefined);
     const clearIndex = goalUpdates.findIndex((goal) => goal === null);
     expect(clearIndex).toBeGreaterThanOrEqual(0);
@@ -15948,10 +15990,15 @@ describe("turn steering (_session/steering)", () => {
       update: {
         sessionUpdate: "session_info_update",
         _meta: {
-          goal: {
-            objective: "Replacement",
-            status: "active",
-            controlMethod: GOAL_CONTROL_METHOD,
+          jetbrains: {
+            air: {
+              version: 1,
+              goal: {
+                objective: "Replacement",
+                status: "active",
+                controlMethod: GOAL_CONTROL_METHOD,
+              },
+            },
           },
         },
       },
@@ -16028,7 +16075,7 @@ describe("turn steering (_session/steering)", () => {
     await staleUpdate;
 
     const goalUpdates = updates
-      .map(({ update }) => update._meta?.goal)
+      .map(({ update }) => update._meta?.jetbrains?.air?.goal)
       .filter((goal) => goal !== undefined);
     const replacementIndex = goalUpdates.findIndex((goal) => goal?.objective === "Replacement");
     expect(replacementIndex).toBeGreaterThanOrEqual(0);
@@ -16047,7 +16094,12 @@ describe("turn steering (_session/steering)", () => {
         update: {
           sessionUpdate: "session_info_update",
           _meta: {
-            goal: expect.objectContaining({ objective: "Replacement", iterations: 1 }),
+            jetbrains: {
+              air: {
+                version: 1,
+                goal: expect.objectContaining({ objective: "Replacement", iterations: 1 }),
+              },
+            },
           },
         },
       });
@@ -16089,7 +16141,8 @@ describe("turn steering (_session/steering)", () => {
     expect(
       updates.some(
         ({ update }) =>
-          update.sessionUpdate === "session_info_update" && update._meta?.goal === null,
+          update.sessionUpdate === "session_info_update" &&
+          update._meta?.jetbrains?.air?.goal === null,
       ),
     ).toBe(false);
   });
@@ -16404,10 +16457,15 @@ describe("turn steering (_session/steering)", () => {
       update: {
         sessionUpdate: "session_info_update",
         _meta: {
-          goal: {
-            objective: "Replace the objective",
-            status: "active",
-            controlMethod: GOAL_CONTROL_METHOD,
+          jetbrains: {
+            air: {
+              version: 1,
+              goal: {
+                objective: "Replace the objective",
+                status: "active",
+                controlMethod: GOAL_CONTROL_METHOD,
+              },
+            },
           },
         },
       },
@@ -18422,7 +18480,7 @@ describe("streamEventToAcpNotifications", () => {
       });
       if ("metaTitle" in testCase) {
         expect(refined[0].update._meta).toMatchObject({
-          claudeCode: { title: testCase.metaTitle },
+          jetbrains: { air: { commandTitle: testCase.metaTitle } },
         });
       }
       // Refinements never carry `content`: content built from partial input is

@@ -451,25 +451,25 @@ describe("ClaudeAcpAgent settings", () => {
           id: "default",
           name: "Manual",
           description: "Always ask before making changes",
-          _meta: { kind: "standard" },
+          _meta: { jetbrains: { air: { version: 1, kind: "standard" } } },
         },
         {
           id: "acceptEdits",
           name: "Accept edits",
           description: "Automatically accept all file edits",
-          _meta: { kind: "standard" },
+          _meta: { jetbrains: { air: { version: 1, kind: "standard" } } },
         },
         {
           id: "plan",
           name: "Plan",
           description: "Create a plan before making changes",
-          _meta: { kind: "plan" },
+          _meta: { jetbrains: { air: { version: 1, kind: "plan" } } },
         },
         {
           id: "auto",
           name: "Auto",
           description: "Claude handles permission decisions",
-          _meta: { kind: "auto_review" },
+          _meta: { jetbrains: { air: { version: 1, kind: "auto_review" } } },
         },
       ]);
       const bypass = response.modes.availableModes[4];
@@ -478,7 +478,7 @@ describe("ClaudeAcpAgent settings", () => {
           id: "bypassPermissions",
           name: "Bypass permissions",
           description: "Accepts all permissions",
-          _meta: { kind: "full_access" },
+          _meta: { jetbrains: { air: { version: 1, kind: "full_access" } } },
         });
       }
       expect(modeIds).not.toContain("dontAsk");

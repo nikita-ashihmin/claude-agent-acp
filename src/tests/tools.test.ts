@@ -3616,8 +3616,8 @@ describe("Skill tool rendering", () => {
     });
   });
 
-  describe("_meta.claudeCode.skill in tool_call notification", () => {
-    it("includes skill name in _meta.claudeCode when Skill tool is invoked", () => {
+  describe("_meta.jetbrains.air.skill in tool_call notification", () => {
+    it("includes the skill name in _meta.jetbrains.air when Skill tool is invoked", () => {
       const notifications = toAcpNotifications(
         [
           { type: "tool_use", id: "toolu_5", name: "Skill", input: { skill: "commits", args: "" } },
@@ -3630,11 +3630,14 @@ describe("Skill tool rendering", () => {
       );
       expect(notifications[0]?.update).toMatchObject({
         sessionUpdate: "tool_call",
-        _meta: { claudeCode: { toolName: "Skill", skill: "commits" } },
+        _meta: {
+          claudeCode: { toolName: "Skill" },
+          jetbrains: { air: { skill: { name: "commits" } } },
+        },
       });
     });
 
-    it("omits skill from _meta.claudeCode when skill name is missing", () => {
+    it("omits the skill from _meta when the skill name is missing", () => {
       const notifications = toAcpNotifications(
         [{ type: "tool_use", id: "toolu_6", name: "Skill", input: {} }] as any,
         "assistant",
@@ -3643,9 +3646,9 @@ describe("Skill tool rendering", () => {
         {} as AcpClient,
         mockLogger,
       );
-      const meta = (notifications[0]?.update as any)?._meta?.claudeCode;
-      expect(meta).toBeDefined();
-      expect(meta.skill).toBeUndefined();
+      const meta = (notifications[0]?.update as any)?._meta;
+      expect(meta.claudeCode).toEqual({ toolName: "Skill" });
+      expect(meta.jetbrains).toBeUndefined();
     });
   });
 
@@ -3693,7 +3696,7 @@ describe("Skill tool rendering", () => {
     });
   });
 
-  describe("_meta.claudeCode.skillPath", () => {
+  describe("_meta.jetbrains.air.skill.path", () => {
     const skillMeta = (skill: string, cwd?: string) =>
       (
         toAcpNotifications(
@@ -3705,7 +3708,7 @@ describe("Skill tool rendering", () => {
           mockLogger,
           cwd ? { cwd } : undefined,
         )[0]?.update as any
-      )?._meta?.claudeCode;
+      )?._meta?.jetbrains?.air?.skill;
 
     let root: string;
 
@@ -3727,33 +3730,32 @@ describe("Skill tool rendering", () => {
 
     it("resolves a project-level .claude/skills skill", () => {
       const file = writeSkill(".claude/skills/commits");
-      expect(skillMeta("commits", root).skillPath).toBe(file);
+      expect(skillMeta("commits", root).path).toBe(file);
     });
 
     it("resolves a project-level .agents/skills skill", () => {
       const file = writeSkill(".agents/skills/commits");
-      expect(skillMeta("commits", root).skillPath).toBe(file);
+      expect(skillMeta("commits", root).path).toBe(file);
     });
 
     it("resolves a directory-scoped skill spelled prefix:name", () => {
       const file = writeSkill("apps/web/.claude/skills/deploy");
-      expect(skillMeta("apps/web:deploy", root).skillPath).toBe(file);
+      expect(skillMeta("apps/web:deploy", root).path).toBe(file);
     });
 
     it("resolves a plugin skill spelled plugin:name", () => {
       const file = writeSkill(".claude/plugins/reviewer/skills/audit");
-      expect(skillMeta("reviewer:audit", root).skillPath).toBe(file);
+      expect(skillMeta("reviewer:audit", root).path).toBe(file);
     });
 
-    it("omits skillPath when no known layout holds the skill", () => {
+    it("omits the path when no known layout holds the skill", () => {
       const meta = skillMeta("nonexistent", root);
-      expect(meta.skill).toBe("nonexistent");
-      expect(meta.skillPath).toBeUndefined();
+      expect(meta).toEqual({ name: "nonexistent" });
     });
 
-    it("omits skillPath when the session has no cwd", () => {
+    it("omits the path when the session has no cwd", () => {
       writeSkill(".claude/skills/commits");
-      expect(skillMeta("commits").skillPath).toBeUndefined();
+      expect(skillMeta("commits").path).toBeUndefined();
     });
   });
 });

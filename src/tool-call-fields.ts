@@ -15,8 +15,9 @@ type ReplacedField = (typeof REPLACED_FIELDS)[number];
 interface SentToolCall {
   /** The JSON of each replaced field that the client holds now. */
   fields: Map<ReplacedField, string>;
-  /** The `_meta.claudeCode` keys that the client holds now, merged by key. */
-  claudeCode: Map<string, string>;
+  /** The `_meta.claudeCode` and `_meta.jetbrains.air` keys that the client
+   *  holds now, merged by key. */
+  mergedMeta: Map<string, string>;
   /** True while an exact approval patch must not be replaced by a snippet. */
   contentPinned: boolean;
   /** True after the tool_result. The entry then waits only for the hook. */
@@ -44,8 +45,8 @@ export class ToolCallFieldTracker {
    * `tool_call_update` and records the rest.
    *
    * Returns false when the update carries nothing new: no replaced field
-   * remains, `_meta` has no key besides `claudeCode`, and every `claudeCode`
-   * key repeats its value. The caller then skips the update. An update for a
+   * remains, `_meta` has no key besides `claudeCode` and `jetbrains`, and
+   * every `claudeCode` and `jetbrains.air` key repeats its value. The caller then skips the update. An update for a
    * tool call that the tracker does not know passes through unchanged.
    *
    * `replacePinnedContent` lets the final result of the tool replace an exact
@@ -55,7 +56,7 @@ export class ToolCallFieldTracker {
     if (update.sessionUpdate === "tool_call") {
       const entry: SentToolCall = {
         fields: new Map(),
-        claudeCode: new Map(),
+        mergedMeta: new Map(),
         contentPinned: false,
         resultSeen: false,
       };
@@ -64,7 +65,7 @@ export class ToolCallFieldTracker {
         const value = (update as Record<string, unknown>)[field];
         if (value !== undefined) entry.fields.set(field, JSON.stringify(value));
       }
-      recordClaudeCode(entry, update._meta);
+      recordMergedMeta(entry, update._meta);
       return true;
     }
     if (update.sessionUpdate !== "tool_call_update") return true;
@@ -92,8 +93,8 @@ export class ToolCallFieldTracker {
       changed = true;
     }
     const meta = update._meta;
-    if (meta && Object.keys(meta).some((key) => key !== "claudeCode")) changed = true;
-    if (recordClaudeCode(entry, meta)) changed = true;
+    if (meta && Object.keys(meta).some((key) => !MERGED_META_NAMESPACES.has(key))) changed = true;
+    if (recordMergedMeta(entry, meta)) changed = true;
     return changed;
   }
 
@@ -146,19 +147,38 @@ export class ToolCallFieldTracker {
   }
 }
 
-/** Merges the `claudeCode` keys of `meta`. Returns true when a key changed. */
-function recordClaudeCode(
+/** The `_meta` namespaces that a client merges by key. */
+const MERGED_META_NAMESPACES = new Set(["claudeCode", "jetbrains"]);
+
+/** Merges the `claudeCode` and `jetbrains.air` keys of `meta`. Returns true
+ *  when a key changed. */
+function recordMergedMeta(
   entry: SentToolCall,
   meta: Record<string, unknown> | null | undefined,
 ): boolean {
-  const claudeCode = meta?.claudeCode;
-  if (!claudeCode || typeof claudeCode !== "object" || Array.isArray(claudeCode)) return false;
   let changed = false;
-  for (const [key, value] of Object.entries(claudeCode)) {
-    const json = JSON.stringify(value);
-    if (entry.claudeCode.get(key) === json) continue;
-    entry.claudeCode.set(key, json);
-    changed = true;
+  const merge = (prefix: string, values: unknown) => {
+    if (!values || typeof values !== "object" || Array.isArray(values)) return;
+    for (const [key, value] of Object.entries(values)) {
+      const json = JSON.stringify(value);
+      if (entry.mergedMeta.get(prefix + key) === json) continue;
+      entry.mergedMeta.set(prefix + key, json);
+      changed = true;
+    }
+  };
+  merge("claudeCode.", meta?.claudeCode);
+  const jetbrains = meta?.jetbrains;
+  if (jetbrains && typeof jetbrains === "object" && !Array.isArray(jetbrains)) {
+    for (const [key, value] of Object.entries(jetbrains)) {
+      if (key === "air") merge("jetbrains.air.", value);
+      else if (!entry.mergedMeta.has(`jetbrains.${key}`)) {
+        entry.mergedMeta.set(`jetbrains.${key}`, JSON.stringify(value));
+        changed = true;
+      } else if (entry.mergedMeta.get(`jetbrains.${key}`) !== JSON.stringify(value)) {
+        entry.mergedMeta.set(`jetbrains.${key}`, JSON.stringify(value));
+        changed = true;
+      }
+    }
   }
   return changed;
 }
