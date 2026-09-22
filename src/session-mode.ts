@@ -12,7 +12,7 @@ import type {
   PermissionResult,
   Query,
 } from "@anthropic-ai/claude-agent-sdk";
-import { AIR_KIND_KEY, withAirMeta } from "./air-extension.js";
+import { AIR_KIND_KEY, airOnlyMeta } from "./air-extension.js";
 
 export const MODE_CONFIG_ID = "mode";
 export const AUTO_MODE_FALLBACK: PermissionMode = "acceptEdits";
@@ -38,6 +38,8 @@ export type SessionModeManagerOptions<S extends SessionMode> = {
   updateConfigOption(sessionId: string, configId: string, value: string): Promise<void>;
   sessionUpdate(params: SessionNotification): Promise<void>;
   logError(...args: unknown[]): void;
+  /** Whether the client is AIR. Only AIR gets the mode kind, under `_meta.jetbrains.air`. */
+  airClient?(): boolean;
 };
 
 type ModeConfigSession = SessionMode & {
@@ -285,30 +287,36 @@ export class SessionModeManager<S extends SessionMode> {
   }
 
   private buildAvailableModes(allowBypass: boolean): SessionModeState["availableModes"] {
+    // Only AIR gets the mode kind.
+    const air = this.options.airClient?.() ?? false;
+    const kind = (value: string) => {
+      const meta = airOnlyMeta(air, AIR_KIND_KEY, value);
+      return meta ? { _meta: meta } : {};
+    };
     const modes: SessionModeState["availableModes"] = [
       {
         id: "default",
         name: "Manual",
         description: "Always ask before making changes",
-        _meta: withAirMeta(undefined, AIR_KIND_KEY, "standard"),
+        ...kind("standard"),
       },
       {
         id: "acceptEdits",
         name: "Accept edits",
         description: "Automatically accept all file edits",
-        _meta: withAirMeta(undefined, AIR_KIND_KEY, "standard"),
+        ...kind("standard"),
       },
       {
         id: "plan",
         name: "Plan",
         description: "Create a plan before making changes",
-        _meta: withAirMeta(undefined, AIR_KIND_KEY, "plan"),
+        ...kind("plan"),
       },
       {
         id: "auto",
         name: "Auto",
         description: "Claude handles permission decisions",
-        _meta: withAirMeta(undefined, AIR_KIND_KEY, "auto_review"),
+        ...kind("auto_review"),
       },
     ];
     if (allowBypass) {
@@ -316,7 +324,7 @@ export class SessionModeManager<S extends SessionMode> {
         id: "bypassPermissions",
         name: "Bypass permissions",
         description: "Accepts all permissions",
-        _meta: withAirMeta(undefined, AIR_KIND_KEY, "full_access"),
+        ...kind("full_access"),
       });
     }
     return modes;

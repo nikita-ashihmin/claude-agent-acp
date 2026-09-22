@@ -446,30 +446,27 @@ describe("ClaudeAcpAgent settings", () => {
       });
 
       const modeIds: string[] = response.modes.availableModes.map((m: any) => m.id);
+      // A client that is not AIR gets no mode kind.
       expect(response.modes.availableModes.slice(0, 4)).toEqual([
         {
           id: "default",
           name: "Manual",
           description: "Always ask before making changes",
-          _meta: { jetbrains: { air: { version: 1, kind: "standard" } } },
         },
         {
           id: "acceptEdits",
           name: "Accept edits",
           description: "Automatically accept all file edits",
-          _meta: { jetbrains: { air: { version: 1, kind: "standard" } } },
         },
         {
           id: "plan",
           name: "Plan",
           description: "Create a plan before making changes",
-          _meta: { jetbrains: { air: { version: 1, kind: "plan" } } },
         },
         {
           id: "auto",
           name: "Auto",
           description: "Claude handles permission decisions",
-          _meta: { jetbrains: { air: { version: 1, kind: "auto_review" } } },
         },
       ]);
       const bypass = response.modes.availableModes[4];
@@ -478,7 +475,6 @@ describe("ClaudeAcpAgent settings", () => {
           id: "bypassPermissions",
           name: "Bypass permissions",
           description: "Accepts all permissions",
-          _meta: { jetbrains: { air: { version: 1, kind: "full_access" } } },
         });
       }
       expect(modeIds).not.toContain("dontAsk");

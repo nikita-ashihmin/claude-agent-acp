@@ -171,6 +171,7 @@ export function askUserQuestionsToCreateRequest(
   questions: AskUserQuestion[],
   sessionId: string,
   toolCallId: string | undefined,
+  airClient = false,
 ): CreateElicitationRequest {
   const single = questions.length === 1;
   const properties: Record<string, ElicitationPropertySchema> = {};
@@ -210,11 +211,15 @@ export function askUserQuestionsToCreateRequest(
         ? "Type your own answer to add to your selection above (optional)."
         : "Type your own answer, or add a note to the option you chose above (optional).",
       // Marks the field as the custom answer companion of a select question,
-      // under `_meta.jetbrains.air.customAnswer` (see the ACP tool call contract).
-      _meta: withAirMeta(undefined, AIR_CUSTOM_ANSWER_KEY, {
-        questionId: questionFieldKey(index),
-        isCustomAnswer: true,
-      }),
+      // under `_meta.jetbrains.air.customAnswer`. Only AIR gets the marker.
+      ...(airClient
+        ? {
+            _meta: withAirMeta(undefined, AIR_CUSTOM_ANSWER_KEY, {
+              questionId: questionFieldKey(index),
+              isCustomAnswer: true,
+            }),
+          }
+        : {}),
     };
   });
 

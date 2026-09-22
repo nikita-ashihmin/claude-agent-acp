@@ -54,7 +54,8 @@ function compactText(value: unknown): string | undefined {
 export function buildClaudePermissionPresentation(
   value: ClaudePermissionPresentationInput,
 ): Pick<RequestPermissionRequest, "toolCall" | "_meta"> {
-  const renderer = new AcpToolCallRenderer(value.capabilities ?? new ClientCapabilities());
+  const capabilities = value.capabilities ?? new ClientCapabilities();
+  const renderer = new AcpToolCallRenderer(capabilities);
   const toolUse = { id: value.toolUseID, name: value.toolName, input: value.input };
   const facts = renderer.facts(toolUse, value.cwd);
   const host =
@@ -86,8 +87,23 @@ export function buildClaudePermissionPresentation(
       title: toolCallTitle,
       previewContent: value.previewContent,
       extraLocations,
+      // The upstream request shows the input of a network or computer-use
+      // request that has no content of its own.
+      fallbackContent:
+        host || isComputerUse
+          ? [
+              {
+                type: "content" as const,
+                content: {
+                  type: "text" as const,
+                  text: `\`\`\`json\n${JSON.stringify(value.input, null, 2)}\n\`\`\``,
+                },
+              },
+            ]
+          : undefined,
     }),
-    ...(title
+    // Only AIR gets the permission presentation.
+    ...(title && capabilities.air.client
       ? {
           _meta: withAirMeta(undefined, AIR_PERMISSION_KEY, {
             version: 1,

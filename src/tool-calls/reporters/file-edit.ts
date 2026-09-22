@@ -117,9 +117,13 @@ async function finalChange(
  * NotebookEdit: the new cell source is input. ACP has no notebook diff, and a
  * `diff` block would name the `.ipynb` file with cell text instead of file
  * text, so the source stays in `rawInput` and gets a display copy.
+ *
+ * Only AIR gets this rendering. Every other client gets the generic rendering
+ * of the upstream adapter.
  */
 export class NotebookEditReporter implements ToolReporter {
-  toolUse(input: unknown, { cwd }: ToolUseContext): ToolUseFacts {
+  toolUse(input: unknown, { cwd, capabilities }: ToolUseContext): ToolUseFacts {
+    if (!capabilities.air.client) return { title: "NotebookEdit", kind: "other" };
     const notebook = input as Partial<NotebookEditInput> | undefined;
     const displayPath = notebook?.notebook_path
       ? toDisplayPath(notebook.notebook_path, cwd)
@@ -145,7 +149,8 @@ export class NotebookEditReporter implements ToolReporter {
    * cell deletion has no source, so its result text is the result to show.
    */
   toolResult(context: ToolResultContext): ToolResultFacts {
-    return notebookSource(context.toolUse.input as Partial<NotebookEditInput>)
+    return context.capabilities.air.client &&
+      notebookSource(context.toolUse.input as Partial<NotebookEditInput>)
       ? { rawOutput: undefined }
       : resultText(context.result);
   }

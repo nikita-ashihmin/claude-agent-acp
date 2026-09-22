@@ -4,6 +4,7 @@ import {
   AIR_PLAN_CONTENT_DELTA_CAPABILITY,
   AIR_RAW_INPUT_RENDERING_CAPABILITY,
   clientSupportsAirCapability,
+  isAirClient,
 } from "../air-extension.js";
 
 /**
@@ -22,7 +23,7 @@ export class ClientCapabilities {
     /** The client accepts an exact git patch in a diff (`jetbrains.air` `diffPatch`). */
     readonly diffPatch: boolean = false,
     /** The capabilities that only JetBrains AIR declares. */
-    readonly air: AirCapabilities = { rawInputRendering: false, planContentDelta: false },
+    readonly air: AirCapabilities = NO_AIR,
   ) {}
 
   static from(capabilities: AcpClientCapabilities | null | undefined): ClientCapabilities {
@@ -33,6 +34,7 @@ export class ClientCapabilities {
       terminalOutputDelta,
       clientSupportsAirCapability(capabilities, AIR_DIFF_PATCH_CAPABILITY),
       {
+        client: isAirClient(capabilities),
         rawInputRendering: clientSupportsAirCapability(
           capabilities,
           AIR_RAW_INPUT_RENDERING_CAPABILITY,
@@ -46,8 +48,15 @@ export class ClientCapabilities {
   }
 }
 
-/** The capabilities of JetBrains AIR, read from `_meta.jetbrains.air.capabilities`. */
+/** The capabilities of JetBrains AIR, read from `_meta.jetbrains.air`. */
 export interface AirCapabilities {
+  /**
+   * The client declared `_meta.jetbrains.air`. Only then does a report follow
+   * the tool call contract of `docs/air-extensions.md`. Every other client
+   * gets the fields of the upstream adapter, and only the unchanged fields of
+   * an update are left out.
+   */
+  readonly client: boolean;
   /**
    * AIR renders `rawInput` itself. A tool call report for AIR then carries no
    * display copy of the input in `content`.
@@ -59,3 +68,9 @@ export interface AirCapabilities {
    */
   readonly planContentDelta: boolean;
 }
+
+const NO_AIR: AirCapabilities = {
+  client: false,
+  rawInputRendering: false,
+  planContentDelta: false,
+};

@@ -98,6 +98,12 @@ import type {
   BetaCodeExecutionToolResultBlockParam,
 } from "@anthropic-ai/sdk/resources/beta.mjs";
 
+/** The capabilities of an AIR client. Only AIR gets the AIR extensions of
+ *  `docs/air-extensions.md`. */
+const AIR_CLIENT_CAPABILITIES = {
+  _meta: { jetbrains: { air: { version: 1, capabilities: [] as string[] } } },
+};
+
 /** A `system`/init frame advertising the msg_lifecycle_v1 capability, so the
  *  consumer latches `session.msgLifecycleV1` and cancel() routes orphan
  *  accounting through `orphanCommands` (CLIs 2.1.206+). */
@@ -845,6 +851,7 @@ describe("tool conversions", () => {
         {},
         {} as AcpClient,
         console,
+        { clientCapabilities: AIR_CLIENT_CAPABILITIES },
       );
 
       expect(notifications[0]?.update).toMatchObject({
@@ -870,7 +877,7 @@ describe("tool conversions", () => {
       {},
       {} as AcpClient,
       console,
-      { parentToolUseId: "outer-agent" },
+      { parentToolUseId: "outer-agent", clientCapabilities: AIR_CLIENT_CAPABILITIES },
     );
     expect(nestedAgent[0]?.update).toMatchObject({
       sessionUpdate: "tool_call",
@@ -3570,6 +3577,7 @@ describe("permission request cancellation", () => {
       },
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectSession(agent, "session-1");
 
     await agent.canUseTool("session-1")("Bash", { command: "ls" }, {
@@ -3687,6 +3695,7 @@ describe("permission request cancellation", () => {
       },
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectSession(agent, "session-1");
     const input = { file_path: "/outside/a.ts" };
 
@@ -3902,6 +3911,7 @@ describe("tool_call emitted before permission request", () => {
 
   it("emits the tool_call (then asks permission) when the stream hasn't yet", async () => {
     const { agent, events, updates, session } = setup();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
 
     const result = await agent.canUseTool("session-1")(
       "Bash",
@@ -3931,6 +3941,7 @@ describe("tool_call emitted before permission request", () => {
 
   it("carries the PowerShell description in claudeCode meta like Bash", async () => {
     const { agent, updates } = setup();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
 
     await agent.canUseTool("session-1")(
       "PowerShell",
@@ -4294,6 +4305,7 @@ describe("canUseTool in bypassPermissions mode", () => {
       },
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     agent.sessions["session-1"] = mockSessionState();
     agent.sessions["session-1"]!.emittedToolCalls.add("tool-1");
 
@@ -4327,6 +4339,7 @@ describe("canUseTool in bypassPermissions mode", () => {
       },
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     agent.sessions["session-1"] = mockSessionState();
     agent.sessions["session-1"]!.emittedToolCalls.add("tool-1");
 
@@ -4399,6 +4412,7 @@ describe("subagent permission attribution (issue #851)", () => {
 
   it("keeps the legacy child tool call before its root permission request", async () => {
     const { agent, updates, requests, session } = setup();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     session.liveBackgroundTasks.set("agent-42", {
       parentToolUseId: "toolu_parent",
       isSubagent: true,
@@ -4423,6 +4437,7 @@ describe("subagent permission attribution (issue #851)", () => {
 
   it("forwards the MCP server provenance on the permission request", async () => {
     const { agent, requests } = setup();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
 
     await agent.canUseTool("session-1")("mcp__github__create_issue", { title: "x" }, {
       signal: new AbortController().signal,
@@ -4800,8 +4815,7 @@ describe("subagent permission attribution (issue #851)", () => {
     expect(map.has("agent-42")).toBe(false);
     expect(map.get("agent-43")?.parentToolUseId).toBe("toolu_parent_2");
   });
-
-  it("keeps legacy Agent lifecycle and child text internal without capability negotiation", async () => {
+  it("keeps legacy Agent lifecycle and flattened child output without capability negotiation", async () => {
     const updates: AcpSessionNotification[] = [];
     const agent = new ClaudeAcpAgent(
       {
@@ -4865,7 +4879,85 @@ describe("subagent permission attribution (issue #851)", () => {
           update.sessionUpdate === "subagent_state_update",
       ),
     ).toBe(false);
-    // Nested text stays internal without negotiation, streamed or consolidated.
+    // A client that is not AIR gets the streamed subagent text, like upstream.
+    expect(
+      updates.some(({ update }) => JSON.stringify(update).includes("hidden child output")),
+    ).toBe(true);
+    expect(
+      updates.some(
+        ({ update }) =>
+          (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
+          update.toolCallId === "toolu_parent",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps AIR Agent child text internal without native subagent sessions", async () => {
+    const updates: AcpSessionNotification[] = [];
+    const agent = new ClaudeAcpAgent(
+      {
+        sessionUpdate: async (update: AcpSessionNotification) => {
+          updates.push(update);
+        },
+      } as unknown as AcpClient,
+      { log: () => {}, error: () => {} },
+    );
+    await agent.initialize({ protocolVersion: 1, clientCapabilities: AIR_CLIENT_CAPABILITIES });
+    injectGeneratorSession(
+      agent,
+      makeGenerator([
+        {
+          type: "assistant",
+          parent_tool_use_id: null,
+          uuid: randomUUID(),
+          session_id: "test-session",
+          message: {
+            id: randomUUID(),
+            role: "assistant",
+            model: "claude-sonnet-4-20250514",
+            content: [
+              {
+                type: "tool_use",
+                id: "toolu_parent",
+                name: "Agent",
+                input: { description: "Investigate", subagent_type: "Explore" },
+              },
+            ],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: SUBAGENT_TEST_USAGE,
+          },
+        },
+        {
+          ...taskStarted("agent-42", "toolu_parent"),
+          subagent_type: "Explore",
+        },
+        {
+          type: "stream_event",
+          parent_tool_use_id: "toolu_parent",
+          uuid: randomUUID(),
+          session_id: "test-session",
+          event: {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "text_delta", text: "hidden child output" },
+          },
+        },
+        successResult(),
+      ]),
+    );
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+
+    expect(
+      updates.some(
+        ({ update }) =>
+          update.sessionUpdate === "subagent_spawned" ||
+          update.sessionUpdate === "subagent_state_update",
+      ),
+    ).toBe(false);
+    // For AIR, nested text stays internal without negotiation, streamed or
+    // consolidated. A client that is not AIR gets the streamed text, like upstream.
     expect(
       updates.some(({ update }) => JSON.stringify(update).includes("hidden child output")),
     ).toBe(false);
@@ -6330,6 +6422,7 @@ describe("stop reason propagation", () => {
       sessionUpdate: async (notification: any) => updates.push(notification),
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
 
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
@@ -6404,6 +6497,7 @@ describe("stop reason propagation", () => {
       sessionUpdate: async (notification: any) => updates.push(notification),
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
 
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
@@ -6453,6 +6547,7 @@ describe("stop reason propagation", () => {
       } as unknown as AcpClient,
       { log: () => {}, error: () => {} },
     );
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
         const iter = input[Symbol.asyncIterator]();
@@ -8723,7 +8818,7 @@ describe("logout", () => {
     const agent = createMockAgent();
     const response = await agent.initialize({
       protocolVersion: 1,
-      clientCapabilities: {},
+      clientCapabilities: AIR_CLIENT_CAPABILITIES,
     });
 
     expect((response._meta as any)?.jetbrains?.air).toEqual({
@@ -10262,6 +10357,7 @@ describe("usage_update computation", () => {
 
   it("compact_boundary uses post_tokens without waiting for getContextUsage", async () => {
     const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     // No trailing idle: an idle with no preceding result now fails the turn as
     // abandoned (issue #825), and a real compaction turn always produces a
     // result. Here the stream simply ends, settling the prompt end_turn.
@@ -11306,6 +11402,7 @@ describe("assembled assistant text fallback", () => {
 
   it("does not forward the result text of a turn that only emitted compaction output", async () => {
     const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     // `/compact` carries no echo, so it is promoted at its own result, and its
     // synthetic tool call is emitted directly rather than through the assistant
     // forwarding loops. It still counts as visible output, so the result must
@@ -11339,6 +11436,7 @@ describe("assembled assistant text fallback", () => {
 
   it("emits one compaction tool lifecycle and ignores duplicate terminal status", async () => {
     const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectSession(agent, [
       {
         type: "system",
@@ -11410,6 +11508,7 @@ describe("assembled assistant text fallback", () => {
 
   it("does not repeat a failed compaction error delivered as an assistant message", async () => {
     const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectSession(agent, [
       {
         type: "system",
@@ -11493,7 +11592,10 @@ describe("assembled assistant text fallback", () => {
   /** An agent whose client advertises the ACP session-compaction contract. */
   function compactionCapableAgent() {
     const capture = createMockAgentWithCapture();
-    (capture.agent as any).clientCapabilities = { session: { compaction: {} } };
+    (capture.agent as any).clientCapabilities = {
+      ...AIR_CLIENT_CAPABILITIES,
+      session: { compaction: {} },
+    };
     return capture;
   }
 
@@ -11837,6 +11939,7 @@ describe("assembled assistant text fallback", () => {
 
   it("emits a completed compaction tool call for a terminal-only result", async () => {
     const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectSession(agent, [
       {
         type: "system",
@@ -15874,7 +15977,7 @@ describe("turn steering (_session/steering)", () => {
     const agent = createMockAgent();
     const response = await agent.initialize({
       protocolVersion: 1,
-      clientCapabilities: {},
+      clientCapabilities: AIR_CLIENT_CAPABILITIES,
     });
     // Top-level _meta (sibling of agentCapabilities), per the existing steering
     // extension contract. Idle behavior is selected per steering request.
@@ -15919,6 +16022,7 @@ describe("turn steering (_session/steering)", () => {
       } as unknown as AcpClient,
       { log: () => {}, error: () => {} },
     );
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
         const iter = input[Symbol.asyncIterator]();
@@ -15982,6 +16086,7 @@ describe("turn steering (_session/steering)", () => {
       } as unknown as AcpClient,
       { log: () => {}, error: () => {} },
     );
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
         const iter = input[Symbol.asyncIterator]();
@@ -16042,6 +16147,7 @@ describe("turn steering (_session/steering)", () => {
       } as unknown as AcpClient,
       { log: () => {}, error: () => {} },
     );
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     injectGeneratorSession(agent, (input) => {
       async function* messageGenerator() {
         const iter = input[Symbol.asyncIterator]();
@@ -16457,6 +16563,7 @@ describe("turn steering (_session/steering)", () => {
       } as unknown as AcpClient,
       { log: () => {}, error: () => {} },
     );
+    (agent as any).clientCapabilities = AIR_CLIENT_CAPABILITIES;
     const input = new Pushable<any>();
     agent.sessions["test-session"] = mockSessionState({
       input,
@@ -18120,6 +18227,7 @@ describe("streamEventToAcpNotifications", () => {
       cwd: "/Users/test/project",
       emittedToolCalls,
       streamedToolInputs,
+      clientCapabilities: AIR_CLIENT_CAPABILITIES,
     };
     const baseMessage = {
       type: "stream_event",
@@ -18247,6 +18355,8 @@ describe("streamEventToAcpNotifications", () => {
         cwd: "/Users/test/project",
         emittedToolCalls,
         streamedToolInputs,
+        // AIR gets no rawInput until the input is complete.
+        clientCapabilities: AIR_CLIENT_CAPABILITIES,
       };
       const baseMessage = {
         type: "stream_event",
@@ -19341,11 +19451,11 @@ describe("permission_denied", () => {
     );
 
   it("marks the announced tool call failed with the denial reason", async () => {
-    const updates = await run([
-      toolUse("toolu_denied"),
-      denial("toolu_denied"),
-      toolResult("toolu_denied"),
-    ]);
+    const updates = await run(
+      [toolUse("toolu_denied"), denial("toolu_denied"), toolResult("toolu_denied")],
+      {},
+      AIR_CLIENT_CAPABILITIES,
+    );
 
     // The denial resolves the call the preceding tool_call announced, before the
     // tool_result's own failed update lands.
@@ -19420,19 +19530,23 @@ describe("permission_denied", () => {
   // lands at the top level while the tool_call it resolves sits in the
   // subagent's transcript.
   it("attributes a legacy subagent denial to the Agent call that spawned it", async () => {
-    const updates = await run([
-      {
-        type: "system",
-        subtype: "task_started",
-        task_id: "agent-1",
-        tool_use_id: "toolu_agent",
-        subagent_type: "general-purpose",
-        uuid: randomUUID(),
-        session_id: "test-session",
-      },
-      toolUse("toolu_inner", "toolu_agent"),
-      denial("toolu_inner", { agent_id: "agent-1" }),
-    ]);
+    const updates = await run(
+      [
+        {
+          type: "system",
+          subtype: "task_started",
+          task_id: "agent-1",
+          tool_use_id: "toolu_agent",
+          subagent_type: "general-purpose",
+          uuid: randomUUID(),
+          session_id: "test-session",
+        },
+        toolUse("toolu_inner", "toolu_agent"),
+        denial("toolu_inner", { agent_id: "agent-1" }),
+      ],
+      {},
+      AIR_CLIENT_CAPABILITIES,
+    );
 
     // The tool_call carries the parent. The denial does not repeat it.
     expect((denials(updates)[0]._meta as any).claudeCode).toEqual({

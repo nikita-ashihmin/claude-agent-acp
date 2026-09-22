@@ -5,6 +5,15 @@ import { normalizeDurablePermissionChangeSet } from "../permissions/normalizatio
 import { buildClaudePermissionPresentation } from "../permissions/presentation.js";
 
 const rule = { toolName: "Bash", ruleContent: "npm test:*" };
+
+/** An AIR client, which gets the permission contract of `docs/air-extensions.md`. */
+function airCapabilities(terminalOutput = false, terminalOutputDelta = false, diffPatch = false) {
+  return new ClientCapabilities(terminalOutput, terminalOutputDelta, diffPatch, {
+    client: true,
+    rawInputRendering: false,
+    planContentDelta: false,
+  });
+}
 describe("Claude permission suggestion normalization", () => {
   it.each([undefined, [], null, "bad"])("omits a durable choice for %j", (suggestions) => {
     expect(normalizeDurablePermissionChangeSet(suggestions)).toBeUndefined();
@@ -109,7 +118,7 @@ describe("Claude permission ACP v1 presentation", () => {
       toolName: "Edit",
       input: { file_path: "/work/file.ts", old_string: "old", new_string: "new" },
       toolUseID: "tool-edit",
-      capabilities: new ClientCapabilities(false, false, true),
+      capabilities: airCapabilities(false, false, true),
       previewContent,
     });
 
@@ -121,6 +130,7 @@ describe("Claude permission ACP v1 presentation", () => {
 
   it("uses Approve Plan as the tool title and keeps the question in permission metadata", () => {
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "ExitPlanMode",
       input: { plan: "Implement the change" },
       toolUseID: "tool-plan",
@@ -134,6 +144,7 @@ describe("Claude permission ACP v1 presentation", () => {
 
   it("forwards the CLI's defaultToNo hint in the permission record", () => {
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "Bash",
       input: { command: "rm -rf build" },
       toolUseID: "tool-1",
@@ -146,6 +157,7 @@ describe("Claude permission ACP v1 presentation", () => {
     });
     expect(
       buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName: "Bash",
         input: { command: "rm -rf build" },
         toolUseID: "tool-1",
@@ -159,6 +171,7 @@ describe("Claude permission ACP v1 presentation", () => {
   it("keeps command descriptions and decision reasons in their presentation fields", () => {
     const input = { command: "npm test", description: "Run the tests" };
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "Bash",
       input,
       toolUseID: "tool-1",
@@ -187,6 +200,7 @@ describe("Claude permission ACP v1 presentation", () => {
     (toolName) => {
       const input = {};
       const presentation = buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
@@ -207,6 +221,7 @@ describe("Claude permission ACP v1 presentation", () => {
     (toolName, command) => {
       const input = { command, description: "List files in current directory" };
       const presentation = buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
@@ -234,7 +249,7 @@ describe("Claude permission ACP v1 presentation", () => {
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
-        capabilities: new ClientCapabilities(true),
+        capabilities: airCapabilities(true),
       });
 
       expect(presentation._meta).toEqual({
@@ -248,6 +263,7 @@ describe("Claude permission ACP v1 presentation", () => {
   it("keeps the WebFetch URL in structured tool input", () => {
     const input = { url: "https://example.com/docs", prompt: "Read the API reference" };
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "WebFetch",
       input,
       toolUseID: "tool-web-fetch",
@@ -270,6 +286,7 @@ describe("Claude permission ACP v1 presentation", () => {
   it("keeps the WebSearch query out of the permission description", () => {
     const query = "Agent Client Protocol ACP specification subagents v2";
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "WebSearch",
       input: { query },
       toolUseID: "tool-web-search",
@@ -302,6 +319,7 @@ describe("Claude permission ACP v1 presentation", () => {
   ])("reuses the %s tool-call title", (toolName, input, title) => {
     expect(
       buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
@@ -313,6 +331,7 @@ describe("Claude permission ACP v1 presentation", () => {
   it("reuses tool-call titles and temporarily exposes decisionReason", () => {
     expect(
       buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName: "Read",
         input: { file_path: "/work/a.ts" },
         toolUseID: "tool-2",
@@ -334,6 +353,7 @@ describe("Claude permission ACP v1 presentation", () => {
     });
     expect(
       buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName: "Read",
         input: { file_path: "/work/a.ts" },
         toolUseID: "tool-2b",
@@ -353,6 +373,7 @@ describe("Claude permission ACP v1 presentation", () => {
     });
     expect(
       buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName: "Read",
         input: {},
         toolUseID: "tool-3",
@@ -389,6 +410,7 @@ describe("Claude permission ACP v1 presentation", () => {
     "does not use the %s operation subtitle as a permission explanation",
     (toolName, input, description) => {
       const presentation = buildClaudePermissionPresentation({
+        capabilities: airCapabilities(),
         toolName,
         input,
         toolUseID: `tool-${toolName}`,
@@ -403,6 +425,7 @@ describe("Claude permission ACP v1 presentation", () => {
 
   it("adds a non-duplicated blocked path to standard locations", () => {
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "Read",
       input: { file_path: "/work/a.ts" },
       toolUseID: "tool-4",
@@ -416,6 +439,7 @@ describe("Claude permission ACP v1 presentation", () => {
 
   it("reuses the standard title for an unknown tool", () => {
     const presentation = buildClaudePermissionPresentation({
+      capabilities: airCapabilities(),
       toolName: "mcp__demo__deploy",
       input: { target: "staging" },
       toolUseID: "tool-5",
@@ -427,6 +451,70 @@ describe("Claude permission ACP v1 presentation", () => {
     });
     expect(presentation._meta).toEqual({
       jetbrains: { air: { version: 1, permission: { version: 1, title: "mcp__demo__deploy" } } },
+    });
+  });
+});
+
+describe("Claude permission presentation for a client that is not AIR", () => {
+  it("repeats the whole tool call and sends no AIR key", () => {
+    const input = { command: "npm test", description: "Run the tests" };
+    const presentation = buildClaudePermissionPresentation({
+      toolName: "Bash",
+      input,
+      toolUseID: "tool-1",
+      title: "Run npm test?",
+      decisionReason: "Needed to verify the change.",
+      capabilities: new ClientCapabilities(true),
+    });
+    expect(presentation).toEqual({
+      toolCall: {
+        toolCallId: "tool-1",
+        name: "Bash",
+        status: "pending",
+        rawInput: input,
+        title: "npm test",
+        kind: "execute",
+        content: [{ type: "terminal", terminalId: "tool-1" }],
+      },
+    });
+  });
+
+  it("keeps the Write file text in rawInput and adds a blocked path", () => {
+    const input = { file_path: "/work/a.ts", content: "x" };
+    const presentation = buildClaudePermissionPresentation({
+      toolName: "Write",
+      input,
+      toolUseID: "tool-2",
+      cwd: "/work",
+      blockedPath: "/outside/b.ts",
+    });
+    expect(presentation.toolCall).toEqual({
+      toolCallId: "tool-2",
+      name: "Write",
+      status: "pending",
+      rawInput: input,
+      title: "Write a.ts",
+      kind: "edit",
+      content: [{ type: "diff", path: "/work/a.ts", oldText: null, newText: "x" }],
+      locations: [{ path: "/work/a.ts" }, { path: "/outside/b.ts" }],
+    });
+    expect(presentation).not.toHaveProperty("_meta");
+  });
+
+  it("shows the input of a network request that has no content", () => {
+    const presentation = buildClaudePermissionPresentation({
+      toolName: "SandboxNetworkAccess",
+      input: { host: "example.com" },
+      toolUseID: "tool-3",
+    });
+    expect(presentation.toolCall).toMatchObject({
+      title: "example.com",
+      content: [
+        {
+          type: "content",
+          content: { type: "text", text: '```json\n{\n  "host": "example.com"\n}\n```' },
+        },
+      ],
     });
   });
 });

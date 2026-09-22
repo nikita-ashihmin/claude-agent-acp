@@ -167,7 +167,11 @@ describe("approval patch previews", () => {
       toolName: "Edit",
       input,
       toolUseID: "tool-edit",
-      capabilities: new ClientCapabilities(false, false, true),
+      capabilities: new ClientCapabilities(false, false, true, {
+        client: true,
+        rawInputRendering: false,
+        planContentDelta: false,
+      }),
       previewContent: await previewPatchContent("Edit", input),
     });
 

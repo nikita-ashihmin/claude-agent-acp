@@ -14,29 +14,32 @@ const TITLE = "Compact conversation";
  * The synthetic "Compact conversation" tool call, for a client without the
  * ACP compaction updates.
  *
- * A client detects it by `_meta.jetbrains.air.contextCompaction`, which holds
- * the trigger, the token counts, the duration, and the error. The error also
- * goes to `content` once, because it is the result to show. No `rawOutput`
- * repeats the facts.
+ * AIR detects it by `_meta.jetbrains.air.contextCompaction`, which holds the
+ * trigger, the token counts, the duration, and the error. The error also goes
+ * to `content` once, because it is the result to show. No `rawOutput` repeats
+ * the facts for AIR.
+ *
+ * Every other client gets the upstream fields: the tool name `compact`, and
+ * the facts in `rawOutput`. It gets no AIR key.
  */
 export const compactionToolCall = {
-  started(compactionId: string): ToolCallUpdate {
+  started(compactionId: string, airClient = false): ToolCallUpdate {
     return {
       sessionUpdate: "tool_call",
       toolCallId: compactionId,
       title: TITLE,
       kind: "think",
       status: "in_progress",
-      _meta: createContextCompactionMeta(),
+      _meta: meta({}, airClient),
     };
   },
 
-  inProgress(compactionId: string): ToolCallUpdate {
+  inProgress(compactionId: string, airClient = false): ToolCallUpdate {
     return {
       sessionUpdate: "tool_call_update",
       toolCallId: compactionId,
       status: "in_progress",
-      _meta: createContextCompactionMeta(),
+      _meta: meta({}, airClient),
     };
   },
 
@@ -46,11 +49,13 @@ export const compactionToolCall = {
     status: "completed" | "failed" | undefined,
     facts: CompactionFacts,
     first: boolean,
+    airClient = false,
   ): ToolCallUpdate {
     const errorContent =
       status === "failed" && facts.error
         ? { content: [textContent(`Compaction failed: ${facts.error}`)] }
         : {};
+    const rawOutput = !airClient && Object.keys(facts).length > 0 ? { rawOutput: facts } : {};
     if (first) {
       return {
         sessionUpdate: "tool_call",
@@ -59,7 +64,8 @@ export const compactionToolCall = {
         kind: "think",
         status: status ?? "completed",
         ...errorContent,
-        _meta: createContextCompactionMeta(facts),
+        ...rawOutput,
+        _meta: meta(facts, airClient),
       };
     }
     return {
@@ -67,7 +73,13 @@ export const compactionToolCall = {
       toolCallId: compactionId,
       ...(status ? { status } : {}),
       ...errorContent,
-      _meta: createContextCompactionMeta(facts),
+      ...rawOutput,
+      _meta: meta(facts, airClient),
     };
   },
 };
+
+/** The compaction facts for AIR, and the upstream tool name for every other client. */
+function meta(facts: CompactionFacts, airClient: boolean): Record<string, unknown> {
+  return airClient ? createContextCompactionMeta(facts) : { claudeCode: { toolName: "compact" } };
+}

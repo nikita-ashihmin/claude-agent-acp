@@ -117,6 +117,7 @@ import {
   AIR_GOAL_KEY,
   AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
   clientSupportsAirCapability,
+  isAirClient,
   withAirMeta,
 } from "./air-extension.js";
 import {
@@ -2022,6 +2023,7 @@ export class ClaudeAcpAgent {
     });
     this.sessionModes = new SessionModeManager({
       getSession: (sessionId) => this.sessions[sessionId],
+      airClient: () => isAirClient(this.clientCapabilities),
       sessionEndedMessage: SESSION_ENDED_MESSAGE,
       updateConfigOption: (sessionId, configId, value) =>
         this.updateConfigOption(sessionId, configId, value),
@@ -2200,22 +2202,26 @@ export class ClaudeAcpAgent {
       // Top-level `_meta` (sibling of `agentCapabilities`), per the existing ACP
       // steering extension contract: advertises the `_session/steering` request
       // so clients know they may inject a follow-up into a running turn.
+      // Only AIR gets the AIR capabilities and the goal capability, under
+      // `jetbrains.air`.
       _meta: {
-        ...withAirMeta(
-          airSessionFailureCapabilityMeta(
-            AGENT_FILE_CHANGE_REPORT_CAPABILITY,
-            AIR_NATIVE_SUBAGENT_SESSIONS_CAPABILITY,
-            AIR_ASYNC_TASKS_CAPABILITY,
-            AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
-            AIR_DIFF_PATCH_CAPABILITY,
-          ),
-          AIR_GOAL_KEY,
-          {
-            version: GOAL_EXTENSION_VERSION,
-            controlMethod: GOAL_CONTROL_METHOD,
-            actions: [...GOAL_ACTIONS],
-          } satisfies GoalCapability,
-        ),
+        ...(isAirClient(request.clientCapabilities)
+          ? withAirMeta(
+              airSessionFailureCapabilityMeta(
+                AGENT_FILE_CHANGE_REPORT_CAPABILITY,
+                AIR_NATIVE_SUBAGENT_SESSIONS_CAPABILITY,
+                AIR_ASYNC_TASKS_CAPABILITY,
+                AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
+                AIR_DIFF_PATCH_CAPABILITY,
+              ),
+              AIR_GOAL_KEY,
+              {
+                version: GOAL_EXTENSION_VERSION,
+                controlMethod: GOAL_CONTROL_METHOD,
+                actions: [...GOAL_ACTIONS],
+              } satisfies GoalCapability,
+            )
+          : {}),
         steering: {
           supported: true,
         },
@@ -2985,6 +2991,8 @@ export class ClaudeAcpAgent {
     if (session) {
       session.lastPublishedGoal = goal;
     }
+    // The goal is an AIR extension: only AIR gets it.
+    if (!isAirClient(this.clientCapabilities)) return;
     await this.client.sessionUpdate({
       sessionId,
       update: {
@@ -2995,7 +3003,7 @@ export class ClaudeAcpAgent {
   }
 
   private async publishTaskPlan(sessionId: string, taskState: TaskState): Promise<void> {
-    const entries = changedTaskPlanEntries(taskState);
+    const entries = changedTaskPlanEntries(taskState, isAirClient(this.clientCapabilities));
     if (!entries) return;
     await this.client.sessionUpdate({
       sessionId,
@@ -3220,14 +3228,17 @@ export class ClaudeAcpAgent {
       if (!blocks) streamedBlocksByParent.set(key, (blocks = []));
       return blocks;
     };
-    // A client gets subagent text when it negotiated native subagent sessions,
-    // the transcript extension, or the `forwardSubagentText` session option.
-    // Every other client gets neither the streamed nor the consolidated text:
-    // nested text stays internal to the Agent tool call.
+    // A client gets the consolidated subagent text when it negotiated the
+    // transcript extension or the `forwardSubagentText` session option. AIR
+    // also gets it with native subagent sessions, and AIR gets no streamed
+    // subagent text without it: nested text then stays internal to the Agent
+    // tool call. Every other client gets the streamed subagent text, like
+    // upstream.
+    const airClient = isAirClient(this.clientCapabilities);
     const forwardsSubagentText = () =>
       session.forwardSubagentText ||
       supportsSubagentTranscript(this.clientCapabilities) ||
-      clientSupportsSubagents(this.clientCapabilities);
+      (airClient && clientSupportsSubagents(this.clientCapabilities));
     // Tool-use blocks start streaming before their JSON input. Keep the
     // partial input per parent message and block index so completed top-level
     // fields can refine the pending tool call while it streams. Entries are
@@ -3261,6 +3272,7 @@ export class ClaudeAcpAgent {
 
     const compaction = new ContextCompactionLifecycle((notification) => sendUpdate(notification), {
       sessionId: params.sessionId,
+      airClient: isAirClient(this.clientCapabilities),
       presentation: clientSupportsCompactionUpdates(this.clientCapabilities)
         ? "compaction_update"
         : "tool_call",
@@ -5545,10 +5557,11 @@ export class ClaudeAcpAgent {
                 streamedToolInputs,
               },
             )) {
-              // Nested text stays internal for a client that does not get it,
-              // like the consolidated subagent message below.
+              // Nested text stays internal for an AIR client that does not
+              // get it, like the consolidated subagent message below.
               if (
                 message.parent_tool_use_id !== null &&
+                airClient &&
                 !forwardsSubagentText() &&
                 (notification.update.sessionUpdate === "agent_message_chunk" ||
                   notification.update.sessionUpdate === "agent_thought_chunk")
@@ -6804,7 +6817,11 @@ export class ClaudeAcpAgent {
       ) {
         const replayCompaction = new ContextCompactionLifecycle(
           (notification) => this.client.sessionUpdate(notification),
-          { sessionId, presentation: "compaction_update" },
+          {
+            sessionId,
+            presentation: "compaction_update",
+            airClient: isAirClient(this.clientCapabilities),
+          },
         );
         if (replayCompaction.recordSummary(assistantMessageText(message.message))) {
           await replayCompaction.finish(message.uuid, "completed");
@@ -7132,10 +7149,16 @@ export class ClaudeAcpAgent {
       // server; anything else is configuration) instead of parsing the
       // tool-name prefix. The name is the config key as authored — untrusted
       // text, so it rides `_meta` rather than the title.
-      // The client already holds the tool name and the parent tool call.
-      if (mcpServer) {
+      // AIR already holds the tool name and the parent tool call. Every
+      // other client gets them again, like upstream.
+      const airClient = isAirClient(this.clientCapabilities);
+      if (mcpServer || (parentToolUseId && !airClient)) {
         presentation.toolCall._meta = {
-          claudeCode: { mcpServer: { name: mcpServer.name, source: mcpServer.source } },
+          claudeCode: {
+            ...(airClient ? {} : { toolName }),
+            ...(parentToolUseId && !airClient ? { parentToolUseId } : {}),
+            ...(mcpServer ? { mcpServer: { name: mcpServer.name, source: mcpServer.source } } : {}),
+          },
         };
       }
 
@@ -7267,7 +7290,12 @@ export class ClaudeAcpAgent {
       return { behavior: "deny", message: "AskUserQuestion called with no valid questions." };
     }
 
-    const createRequest = askUserQuestionsToCreateRequest(questions, sessionId, toolUseID);
+    const createRequest = askUserQuestionsToCreateRequest(
+      questions,
+      sessionId,
+      toolUseID,
+      isAirClient(this.clientCapabilities),
+    );
     let response;
     try {
       response = await this.withPendingUserInput(sessionId, () =>
@@ -9621,7 +9649,9 @@ export function toAcpNotifications(
               }
             }
           }
-          const entries = shouldEmitTaskPlan ? changedTaskPlanEntries(taskState) : undefined;
+          const entries = shouldEmitTaskPlan
+            ? changedTaskPlanEntries(taskState, renderer.capabilities.air.client)
+            : undefined;
           if (entries) update = { sessionUpdate: "plan", entries };
         } else if (toolUse.name !== "TodoWrite") {
           // A command sends its output first, then the exit and the status.

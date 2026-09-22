@@ -10,8 +10,14 @@ import { changedTaskPlanEntries, createTaskHook, type TaskState } from "../tools
 
 const logger = { log: () => {}, error: () => {} };
 
-/** A Zed-like client: terminal snapshots, no AIR capabilities. */
-const zed: ClientCapabilities = { _meta: { terminal_output: true } };
+/**
+ * An AIR client with terminal snapshots and no AIR capabilities: it gets the
+ * contract and a display copy of the input. A client without `_meta.jetbrains.air`
+ * gets the upstream shape instead (see `acp-scenarios.test.ts`).
+ */
+const terminalAir: ClientCapabilities = {
+  _meta: { terminal_output: true, jetbrains: { air: { version: 1, capabilities: [] } } },
+};
 
 /** AIR: terminal deltas, and it renders rawInput itself. */
 const air: ClientCapabilities = {
@@ -24,8 +30,10 @@ const air: ClientCapabilities = {
   },
 };
 
-/** A client with neither terminal nor AIR capabilities. */
-const plain: ClientCapabilities = {};
+/** An AIR client with neither a terminal nor AIR capabilities. */
+const plainAir: ClientCapabilities = {
+  _meta: { jetbrains: { air: { version: 1, capabilities: [] } } },
+};
 
 function report(
   capabilities: ClientCapabilities,
@@ -63,11 +71,11 @@ describe("ClientCapabilities", () => {
       terminalOutput: true,
       terminalOutputDelta: true,
       diffPatch: true,
-      air: { rawInputRendering: true, planContentDelta: true },
+      air: { client: true, rawInputRendering: true, planContentDelta: true },
     });
     expect(
       ToolCallCapabilities.from({ _meta: { rawInputRendering: true } } as ClientCapabilities).air,
-    ).toEqual({ rawInputRendering: false, planContentDelta: false });
+    ).toEqual({ client: false, rawInputRendering: false, planContentDelta: false });
   });
 });
 
@@ -75,8 +83,8 @@ describe("the ACP tool call contract", () => {
   describe("Bash", () => {
     const input = { command: "ls", description: "List files" };
 
-    it("keeps the Zed terminal conventions", () => {
-      const { call, updates } = report(zed, "Bash", input, { content: "a\nb" });
+    it("keeps the Zed terminal conventions for AIR", () => {
+      const { call, updates } = report(terminalAir, "Bash", input, { content: "a\nb" });
       expect(call).toMatchObject({
         title: "ls",
         kind: "execute",
@@ -113,7 +121,7 @@ describe("the ACP tool call contract", () => {
     });
 
     it("shows one display copy of the description without a terminal", () => {
-      const { call, updates } = report(plain, "Bash", input, { content: "a" });
+      const { call, updates } = report(plainAir, "Bash", input, { content: "a" });
       expect(call.content).toEqual([
         { type: "content", content: { type: "text", text: "List files" } },
       ]);
@@ -125,7 +133,12 @@ describe("the ACP tool call contract", () => {
   });
 
   it("sends the Read text once, in content", () => {
-    const { call, updates } = report(zed, "Read", { file_path: "/work/a.ts" }, { content: "x" });
+    const { call, updates } = report(
+      terminalAir,
+      "Read",
+      { file_path: "/work/a.ts" },
+      { content: "x" },
+    );
     expect(call).toMatchObject({ title: "Read a.ts", kind: "read", content: [] });
     expect(updates[0].content).toEqual([
       { type: "content", content: { type: "text", text: "```\nx\n```" } },
@@ -135,7 +148,7 @@ describe("the ACP tool call contract", () => {
 
   it("keeps the Write file text only in the diff", () => {
     const input = { file_path: "/work/a.ts", content: "text" };
-    for (const capabilities of [zed, plain]) {
+    for (const capabilities of [terminalAir, plainAir]) {
       const { call } = report(capabilities, "Write", input);
       expect(call.rawInput).toEqual({ file_path: "/work/a.ts" });
       expect(call.content).toEqual([
@@ -146,7 +159,9 @@ describe("the ACP tool call contract", () => {
 
   it("keeps the Edit text only in the diff", () => {
     const input = { file_path: "/work/a.ts", old_string: "a", new_string: "b", replace_all: true };
-    const { call, updates } = report(zed, "Edit", input, { content: "The file was updated" });
+    const { call, updates } = report(terminalAir, "Edit", input, {
+      content: "The file was updated",
+    });
     expect(call.rawInput).toEqual({ file_path: "/work/a.ts", replace_all: true });
     expect(call.content).toEqual([
       { type: "diff", path: "/work/a.ts", oldText: "a", newText: "b" },
@@ -157,7 +172,9 @@ describe("the ACP tool call contract", () => {
 
   it("keeps the NotebookEdit source in rawInput with one display copy for Zed", () => {
     const input = { notebook_path: "/work/a.ipynb", cell_id: "c", new_source: "x = 1" };
-    const zedReport = report(zed, "NotebookEdit", input, { content: "Updated c with x = 1" });
+    const zedReport = report(terminalAir, "NotebookEdit", input, {
+      content: "Updated c with x = 1",
+    });
     expect(zedReport.call.rawInput).toEqual(input);
     expect(zedReport.call.content).toEqual([
       { type: "content", content: { type: "text", text: "```\nx = 1\n```" } },
@@ -171,19 +188,24 @@ describe("the ACP tool call contract", () => {
   });
 
   it("reports Grep and Glob hits as content", () => {
-    const grep = report(zed, "Grep", { pattern: "todo", path: "src" }, { content: "a.ts:1" });
+    const grep = report(
+      terminalAir,
+      "Grep",
+      { pattern: "todo", path: "src" },
+      { content: "a.ts:1" },
+    );
     expect(grep.call.title).toBe('grep "todo" src');
     expect(grep.updates[0].content).toEqual([
       { type: "content", content: { type: "text", text: "a.ts:1" } },
     ]);
-    const glob = report(zed, "Glob", { pattern: "*.ts" }, { content: "a.ts" });
+    const glob = report(terminalAir, "Glob", { pattern: "*.ts" }, { content: "a.ts" });
     expect(glob.call.title).toBe("Find `*.ts`");
     expect(glob.updates[0]).not.toHaveProperty("rawOutput");
   });
 
   it("shows the WebFetch prompt once to Zed and never to AIR", () => {
     const input = { url: "https://e.com", prompt: "Summarize" };
-    expect(report(zed, "WebFetch", input).call.content).toEqual([
+    expect(report(terminalAir, "WebFetch", input).call.content).toEqual([
       { type: "content", content: { type: "text", text: "Summarize" } },
     ]);
     expect(report(air, "WebFetch", input).call.content).toEqual([]);
@@ -191,7 +213,7 @@ describe("the ACP tool call contract", () => {
 
   it("reports WebSearch hits from the structured result", () => {
     const { updates } = report(
-      zed,
+      terminalAir,
       "WebSearch",
       { query: "acp" },
       {
@@ -206,7 +228,7 @@ describe("the ACP tool call contract", () => {
 
   it("marks an Agent as a subagent and shows its prompt only to Zed", () => {
     const input = { description: "Explore", prompt: "Inspect the project" };
-    const zedCall = report(zed, "Agent", input).call;
+    const zedCall = report(terminalAir, "Agent", input).call;
     expect(zedCall).toMatchObject({
       title: "Explore",
       content: [{ type: "content", content: { type: "text", text: "Inspect the project" } }],
@@ -217,7 +239,7 @@ describe("the ACP tool call contract", () => {
   });
 
   it("reports TodoWrite as a plan, not as a tool call", () => {
-    const { call } = report(zed, "TodoWrite", {
+    const { call } = report(terminalAir, "TodoWrite", {
       todos: [{ content: "Test", status: "pending", activeForm: "Testing" }],
     });
     expect(call).toEqual({
@@ -230,7 +252,7 @@ describe("the ACP tool call contract", () => {
     const input = { plan: "1. Do it" };
 
     it("shows the plan once and sends no approval text", () => {
-      const { call, updates } = report(zed, "ExitPlanMode", input, {
+      const { call, updates } = report(terminalAir, "ExitPlanMode", input, {
         content: "User has approved your plan.\n\n## Approved Plan:\n1. Do it",
       });
       expect(call.content).toEqual([
@@ -243,7 +265,7 @@ describe("the ACP tool call contract", () => {
     });
 
     it("sends the rejection reason once, unfenced, in rawOutput", () => {
-      const { updates } = report(zed, "ExitPlanMode", input, {
+      const { updates } = report(terminalAir, "ExitPlanMode", input, {
         content: "```\nKeep the tests\n```",
         is_error: true,
       });
@@ -254,7 +276,7 @@ describe("the ACP tool call contract", () => {
 
   it("keeps the AskUserQuestion question out of the title", () => {
     const input = { questions: [{ question: "Which mode?", header: "Mode", options: [] }] };
-    const { call } = report(zed, "AskUserQuestion", input);
+    const { call } = report(terminalAir, "AskUserQuestion", input);
     expect(call.title).toBe("Asking for your input");
     expect(call.content).toEqual([
       { type: "content", content: { type: "text", text: "Which mode?" } },
@@ -264,7 +286,7 @@ describe("the ACP tool call contract", () => {
 
   it("sends the Skill under jetbrains.air.skill and its confirmation as rawOutput", () => {
     const { call, updates } = report(
-      zed,
+      terminalAir,
       "Skill",
       { skill: "commits" },
       { content: "Launching skill: commits" },
@@ -278,7 +300,7 @@ describe("the ACP tool call contract", () => {
 
   it("marks an MCP tool call and shows its text result once", () => {
     const { call, updates } = report(
-      zed,
+      terminalAir,
       "mcp__github__list",
       { repo: "acp" },
       {
@@ -293,7 +315,7 @@ describe("the ACP tool call contract", () => {
   });
 
   it.each(["TaskOutput", "TaskStop"])("reports %s through the generic reporter", (name) => {
-    const { call, updates } = report(zed, name, { task_id: "b1" }, { content: "done" });
+    const { call, updates } = report(terminalAir, name, { task_id: "b1" }, { content: "done" });
     expect(call).toMatchObject({ title: name, kind: "other", content: [] });
     expect(updates[0].content).toEqual([
       { type: "content", content: { type: "text", text: "done" } },
@@ -302,7 +324,7 @@ describe("the ACP tool call contract", () => {
 });
 
 describe("tool call reports outside the tool_use stream", () => {
-  const renderer = AcpToolCallRenderer.for(zed);
+  const renderer = AcpToolCallRenderer.for(terminalAir);
 
   it("reports a memory recall as a completed read", () => {
     expect(
@@ -462,7 +484,7 @@ describe("task plans", () => {
       cache,
       {} as AcpClient,
       logger,
-      { taskState },
+      { taskState, clientCapabilities: air },
     );
 
     expect(plans).toHaveLength(1);

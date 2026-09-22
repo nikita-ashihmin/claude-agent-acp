@@ -13,9 +13,11 @@ const PERSISTED_SUMMARY =
   "If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /tmp/session.jsonl\n" +
   "Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening.";
 
+/** A lifecycle for an AIR client, which gets the compaction facts, unless `airClient` is false. */
 function lifecycle(
   presentation: "tool_call" | "compaction_update",
   sendUpdate?: (notification: SessionNotification) => Promise<void>,
+  airClient = true,
 ) {
   const sent: SessionNotification["update"][] = [];
   const logError = vi.fn();
@@ -24,10 +26,57 @@ function lifecycle(
       (async (notification) => {
         sent.push(notification.update);
       }),
-    { sessionId: "s", presentation, logError },
+    { sessionId: "s", presentation, logError, airClient },
   );
   return { sent, compaction, logError };
 }
+
+describe("ContextCompactionLifecycle for a client that is not AIR", () => {
+  it("sends the upstream tool call fields and no AIR key", async () => {
+    const { sent, compaction } = lifecycle("tool_call", undefined, false);
+    await compaction.start("c");
+    await compaction.finish("c", "completed", { trigger: "manual", preTokens: 10 });
+    expect(sent).toEqual([
+      {
+        sessionUpdate: "tool_call",
+        toolCallId: "c",
+        title: "Compact conversation",
+        kind: "think",
+        status: "in_progress",
+        _meta: { claudeCode: { toolName: "compact" } },
+      },
+      {
+        sessionUpdate: "tool_call_update",
+        toolCallId: "c",
+        status: "completed",
+        rawOutput: { trigger: "manual", preTokens: 10 },
+        _meta: { claudeCode: { toolName: "compact" } },
+      },
+    ]);
+  });
+
+  it("sends compaction updates without _meta, and a summary that differs from the chunks", async () => {
+    const { sent, compaction } = lifecycle("compaction_update", undefined, false);
+    await compaction.start("c");
+    await compaction.heartbeat("c", "Part");
+    compaction.recordSummary("<summary>\nThe whole summary\n</summary>");
+    await compaction.finish("c", "completed", { trigger: "manual" });
+    expect(sent).toEqual([
+      { sessionUpdate: "compaction_update", compactionId: "c", status: "in_progress" },
+      {
+        sessionUpdate: "compaction_summary_chunk",
+        compactionId: "c",
+        content: { type: "text", text: "Part" },
+      },
+      {
+        sessionUpdate: "compaction_update",
+        compactionId: "c",
+        status: "completed",
+        summary: [{ type: "text", text: "The whole summary" }],
+      },
+    ]);
+  });
+});
 
 describe("clientSupportsCompactionUpdates", () => {
   it("requires the v1 session.compaction object", () => {

@@ -335,9 +335,16 @@ const publishedTaskPlans = new WeakMap<TaskState, string>();
  * holds the same entries. The TaskCreated and TaskCompleted hooks and the
  * Task* tool results report the same change, so the second report of a
  * change has nothing new.
+ *
+ * Only an AIR client skips the repeated plan. Every other client gets every
+ * plan, like upstream: pass `airClient` false.
  */
-export function changedTaskPlanEntries(state: TaskState): PlanEntry[] | undefined {
+export function changedTaskPlanEntries(
+  state: TaskState,
+  airClient = true,
+): PlanEntry[] | undefined {
   const entries = taskStateToPlanEntries(state);
+  if (!airClient) return entries;
   const json = JSON.stringify(entries);
   if (publishedTaskPlans.get(state) === json) return undefined;
   publishedTaskPlans.set(state, json);

@@ -15,9 +15,10 @@ export interface ContextCompactionMetadata {
 
 /**
  * The `_meta` of a context compaction report:
- * `_meta.jetbrains.air.contextCompaction`, as the ACP tool call contract defines.
- * The standard toolCallId and status fields own lifecycle identity and phase;
- * this extension carries only compaction-specific facts.
+ * `_meta.jetbrains.air.contextCompaction`, as `docs/air-extensions.md`
+ * defines. The standard toolCallId and status fields own lifecycle identity
+ * and phase; this extension carries only compaction-specific facts. Only AIR
+ * gets it.
  */
 export function createContextCompactionMeta(
   metadata: Omit<ContextCompactionMetadata, "version"> = {},

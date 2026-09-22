@@ -24,8 +24,8 @@ type CompactionState = {
   compactionId: string;
   terminalStatus?: TerminalStatus;
   heartbeatSent: boolean;
-  /** True after a summary chunk went out. The terminal update then sends no summary. */
-  summaryStreamed?: boolean;
+  /** The summary text that went out as chunks. */
+  streamedSummary?: string;
   /** User-displayable summary reported by the PostCompact hook. While the
    *  compaction is in progress it awaits the terminal update; on a `completed`
    *  state it has been sent. */
@@ -40,6 +40,8 @@ export type ContextCompactionLifecycleOptions = {
   /** Receives failures of the send that must not propagate: the turn-boundary
    *  `cancelled` terminal. */
   logError?: (message: string, error: unknown) => void;
+  /** The client is AIR. Only AIR gets the compaction facts, under `_meta.jetbrains.air`. */
+  airClient?: boolean;
 };
 
 export function clientSupportsCompactionUpdates(capabilities?: ClientCapabilities | null): boolean {
@@ -150,6 +152,7 @@ export class ContextCompactionLifecycle {
   private readonly sessionId: string;
   readonly presentation: CompactionPresentation;
   private readonly logError: (message: string, error: unknown) => void;
+  private readonly airClient: boolean;
 
   constructor(
     private readonly sendUpdate: SendUpdate,
@@ -158,6 +161,7 @@ export class ContextCompactionLifecycle {
     this.sessionId = options.sessionId;
     this.presentation = options.presentation ?? "tool_call";
     this.logError = options.logError ?? (() => {});
+    this.airClient = options.airClient ?? false;
   }
 
   get hasDeliveredOutput(): boolean {
@@ -218,11 +222,11 @@ export class ContextCompactionLifecycle {
         sessionUpdate: "compaction_update",
         compactionId,
         status: "in_progress",
-        _meta: createContextCompactionMeta(),
+        ...(this.airClient ? { _meta: createContextCompactionMeta() } : {}),
       });
       return state;
     }
-    await this.send(compactionToolCall.started(compactionId));
+    await this.send(compactionToolCall.started(compactionId, this.airClient));
     return state;
   }
 
@@ -241,7 +245,7 @@ export class ContextCompactionLifecycle {
     if (this.presentation === "compaction_update") {
       const state = this.activeCompaction;
       if (!state || state.terminalStatus || !summaryChunk) return;
-      state.summaryStreamed = true;
+      state.streamedSummary = (state.streamedSummary ?? "") + summaryChunk;
       await this.send({
         sessionUpdate: "compaction_summary_chunk",
         compactionId: state.compactionId,
@@ -253,7 +257,7 @@ export class ContextCompactionLifecycle {
     const state = this.activeCompaction ?? (await this.start(fallbackId));
     if (state.terminalStatus || state.heartbeatSent) return;
     state.heartbeatSent = true;
-    await this.send(compactionToolCall.inProgress(state.compactionId));
+    await this.send(compactionToolCall.inProgress(state.compactionId, this.airClient));
   }
 
   /**
@@ -305,9 +309,13 @@ export class ContextCompactionLifecycle {
     const hasMetadata = Object.keys(metadata).length > 0;
 
     if (this.presentation === "compaction_update") {
-      // A summary that went out as chunks is not sent again in full.
+      // A summary that went out as chunks is not sent again in full. For a
+      // client that is not AIR, only when the chunks hold the same text.
+      const summaryStreamed = this.airClient
+        ? state.streamedSummary !== undefined
+        : state.streamedSummary === state.summary;
       const summary =
-        firstTerminal && terminalStatus === "completed" && !state.summaryStreamed
+        firstTerminal && terminalStatus === "completed" && !summaryStreamed
           ? state.summary
           : undefined;
       await this.send({
@@ -320,7 +328,8 @@ export class ContextCompactionLifecycle {
         // only re-send it when the boundary adds facts, so a status-only
         // duplicate can't wipe the token counts.
         // The standard `error` field carries the error, so `_meta` does not.
-        ...(firstTerminal || hasMetadata
+        // Only AIR gets the compaction facts.
+        ...(this.airClient && (firstTerminal || hasMetadata)
           ? { _meta: createContextCompactionMeta(withoutError(metadata)) }
           : {}),
       });
@@ -333,6 +342,7 @@ export class ContextCompactionLifecycle {
         opened ? status : firstTerminal ? status : undefined,
         metadata,
         opened,
+        this.airClient,
       ),
     );
   }

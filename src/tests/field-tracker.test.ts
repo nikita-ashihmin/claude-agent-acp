@@ -168,6 +168,8 @@ describe("tool call refinements", () => {
       emittedToolCalls: new Set<string>(),
       streamedToolInputs: new Map() as StreamedToolInputCache,
       toolCallFields,
+      // AIR gets no rawInput until the input is complete.
+      clientCapabilities: patchCapabilities,
     };
     const base = {
       type: "stream_event",

@@ -10,7 +10,13 @@ import os from "node:os";
 import path from "node:path";
 import { exitPlanModeRawOutput } from "../../exit-plan.js";
 import { textContent } from "../content.js";
-import type { ToolReporter, ToolResultContext, ToolResultFacts, ToolUseFacts } from "../facts.js";
+import type {
+  ToolReporter,
+  ToolResultContext,
+  ToolResultFacts,
+  ToolUseContext,
+  ToolUseFacts,
+} from "../facts.js";
 
 /** ExitPlanMode: the plan is input that the user approves. */
 export class ExitPlanModeReporter implements ToolReporter {
@@ -28,22 +34,34 @@ export class ExitPlanModeReporter implements ToolReporter {
     return { title: "Exited Plan Mode", rawOutput: undefined };
   }
 
-  /** The rejection reason has no display form. Claude fences it, so unfence it. */
-  errorResult({ toolUse, result }: ToolResultContext): ToolResultFacts {
+  /**
+   * The rejection reason has no display form. Claude fences it, so unfence it.
+   * A client that is not AIR gets the error text as the result to show.
+   */
+  errorResult({ toolUse, result, capabilities }: ToolResultContext): ToolResultFacts | undefined {
+    if (!capabilities.air.client) return undefined;
     return { rawOutput: exitPlanModeRawOutput(toolUse.name, result.content) };
   }
 }
 
 /** AskUserQuestion: the questions are input that the user reads. */
 export class AskUserQuestionReporter implements ToolReporter {
-  toolUse(input: unknown): ToolUseFacts {
+  /**
+   * AIR gets a fixed title, because the question is input. Every other client
+   * gets the question of a single question as the title, like upstream.
+   */
+  toolUse(input: unknown, { capabilities }: ToolUseContext): ToolUseFacts {
     const ask = input as Partial<AskUserQuestionInput> | undefined;
     const questions = Array.isArray(ask?.questions) ? ask.questions : [];
     const display = questions
       .filter((q) => typeof q?.question === "string")
       .map((q) => textContent(q.question));
+    const single =
+      !capabilities.air.client && questions.length === 1 && questions[0]?.question
+        ? questions[0].question
+        : undefined;
     return {
-      title: "Asking for your input",
+      title: single ?? "Asking for your input",
       kind: "other",
       ...(display.length > 0 ? { display } : {}),
     };

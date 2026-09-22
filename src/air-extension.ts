@@ -56,6 +56,31 @@ export function withAirMeta(
   };
 }
 
+/**
+ * Whether the client is JetBrains AIR: it declared `_meta.jetbrains.air` in
+ * its capabilities.
+ *
+ * Only AIR gets the AIR extensions of `docs/air-extensions.md`. Every other
+ * client, Zed too, gets the fields and the upstream `_meta` keys of the
+ * upstream adapter, and no key that exists only for AIR.
+ */
+export function isAirClient(capabilities: unknown): boolean {
+  return airExtensionMeta(asRecord(capabilities)._meta) !== undefined;
+}
+
+/**
+ * The `_meta` of an AIR client with one more AIR payload, or undefined for
+ * every other client: a client that is not AIR gets no AIR key.
+ */
+export function airOnlyMeta(
+  airClient: boolean,
+  capability: string,
+  payload: unknown,
+  meta?: Record<string, unknown> | null,
+): Record<string, unknown> | undefined {
+  return airClient ? withAirMeta(meta, capability, payload) : (meta ?? undefined);
+}
+
 /** The `air` object inside a `_meta`, or undefined when the peer sent no AIR extension. */
 export function airExtensionMeta(meta: unknown): Record<string, unknown> | undefined {
   const air = asRecord(asRecord(meta)[JETBRAINS_META_KEY])[AIR_META_KEY];
