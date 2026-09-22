@@ -456,11 +456,34 @@ describe("AsyncTaskRuntime", () => {
       description: "Fast build",
       outputFilePath: "/tmp/tasks/fast-shell.output",
     });
-    expect(published[1]?.update).toMatchObject({
+    // The spawn carried the output path and the tool call. The state does not repeat them.
+    expect(published[1]?.update).toEqual({
+      sessionUpdate: "async_task_state_update",
+      asyncTaskId: "fast-shell",
       state: "completed",
       summary: "Already done",
-      outputFilePath: "/tmp/tasks/fast-shell.output",
     });
+  });
+
+  it("sends only the progress fields that changed", async () => {
+    const published: AcpSessionNotification[] = [];
+    const runtime = new AsyncTaskRuntime(true, "session", async (notification) => {
+      published.push(notification);
+    });
+    await runtime.taskStarted({
+      task_id: "shell",
+      task_type: "local_bash",
+      description: "Build",
+      isBackgrounded: true,
+    } as any);
+    await runtime.taskProgress({ task_id: "shell", description: "Build", summary: "Step 1" });
+    await runtime.taskProgress({ task_id: "shell", description: "Build", summary: "Step 1" });
+    await runtime.taskProgress({ task_id: "shell", description: "Build", summary: "Step 2" });
+
+    expect(published.slice(1).map((notification) => notification.update)).toEqual([
+      { sessionUpdate: "async_task_progress", asyncTaskId: "shell", summary: "Step 1" },
+      { sessionUpdate: "async_task_progress", asyncTaskId: "shell", summary: "Step 2" },
+    ]);
   });
 
   it("retains a terminal task_updated tombstone until background promotion", async () => {

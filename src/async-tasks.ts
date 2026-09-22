@@ -22,6 +22,8 @@ type AsyncTask = {
   state: AsyncTaskState;
   terminalSummary?: string;
   terminalSource?: TerminalSource;
+  /** The optional fields that the client holds now, as JSON. */
+  published: Map<string, string>;
 };
 
 type TaskIdentity = { taskId?: unknown; task_id?: unknown };
@@ -396,6 +398,7 @@ export class AsyncTaskRuntime {
       stopping: false,
       stopAnnounced: false,
       state: "running",
+      published: new Map(),
     };
     this.tasks.set(taskId, task);
     return task;
@@ -468,6 +471,11 @@ export class AsyncTaskRuntime {
       },
     });
     task.announced = true;
+    changedFields(task, {
+      description: task.description,
+      outputFilePath: task.outputFilePath,
+      toolCallId: task.toolCallId,
+    });
     if (isTerminal(task.state)) {
       await this.publishState(task, task.state, task.terminalSummary);
     }
@@ -516,6 +524,10 @@ export class AsyncTaskRuntime {
     }
   }
 
+  /**
+   * Publishes the progress fields that changed since the last report of the
+   * task. A beat with nothing new is not sent.
+   */
   private async publishProgress(
     task: AsyncTask,
     update: {
@@ -527,21 +539,28 @@ export class AsyncTaskRuntime {
       toolCallId?: string;
     },
   ): Promise<void> {
+    const changed = changedFields(task, update);
+    if (Object.keys(changed).length === 0) return;
     await this.publish({
       sessionId: this.sessionId,
       update: {
         sessionUpdate: "async_task_progress",
         asyncTaskId: task.id,
-        ...update,
+        ...changed,
       },
     });
   }
 
+  /** Publishes a state, with the output path and the tool call only when they changed. */
   private async publishState(
     task: AsyncTask,
     state: AsyncTaskState,
     summary?: string,
   ): Promise<void> {
+    const changed = changedFields(task, {
+      outputFilePath: task.outputFilePath,
+      toolCallId: task.toolCallId,
+    });
     await this.publish({
       sessionId: this.sessionId,
       update: {
@@ -549,11 +568,26 @@ export class AsyncTaskRuntime {
         asyncTaskId: task.id,
         state,
         ...(summary ? { summary } : {}),
-        ...(task.outputFilePath ? { outputFilePath: task.outputFilePath } : {}),
-        ...(task.toolCallId ? { toolCallId: task.toolCallId } : {}),
+        ...changed,
       },
     });
   }
+}
+
+/**
+ * The fields whose value differs from what the client holds, and records
+ * them. An undefined value is not a field.
+ */
+function changedFields<T extends Record<string, unknown>>(task: AsyncTask, fields: T): Partial<T> {
+  const changed: Partial<T> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    const json = JSON.stringify(value);
+    if (task.published.get(key) === json) continue;
+    task.published.set(key, json);
+    (changed as Record<string, unknown>)[key] = value;
+  }
+  return changed;
 }
 
 /** Recovers background Bash lifecycle data exposed only on its tool result. */
