@@ -102,6 +102,11 @@
           "kind": "allow_always"
         },
         {
+          "optionId": "exit-plan-bypass",
+          "name": "Yes, and bypass permissions",
+          "kind": "allow_always"
+        },
+        {
           "optionId": "reject",
           "name": "No, keep planning",
           "kind": "reject_once"

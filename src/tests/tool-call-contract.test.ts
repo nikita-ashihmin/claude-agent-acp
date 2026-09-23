@@ -168,6 +168,21 @@ describe("the ACP tool call contract", () => {
     }
   });
 
+  it("keeps the Write file text of an alias key only in the diff", () => {
+    for (const input of [
+      { path: "/work/a.ts", file_text: "text" },
+      { path: "/work/a.ts", file_content: "text" },
+    ]) {
+      const { call } = report(plainAir, "Write", input);
+      expect(call.title).toBe("Write a.ts");
+      expect(call.locations).toEqual([{ path: "/work/a.ts" }]);
+      expect(call.rawInput).toEqual({ path: "/work/a.ts" });
+      expect(call.content).toEqual([
+        { type: "diff", path: "/work/a.ts", oldText: null, newText: "text" },
+      ]);
+    }
+  });
+
   it("keeps the Edit text only in the diff", () => {
     const input = { file_path: "/work/a.ts", old_string: "a", new_string: "b", replace_all: true };
     const { call, updates } = report(terminalAir, "Edit", input, {

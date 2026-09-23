@@ -829,6 +829,8 @@ export type Session = {
    *  (see resumedFirstResultModelUsage). */
   lastModelUsageReading?: ModelTokenTally;
   modes: SessionModeState;
+  /** The mode the session left when it entered plan mode, if it is in plan. */
+  prePlanMode?: string;
   models: SessionModelState;
   modelInfos: ModelInfo[];
   /** Prevents the model-specific Auto fallback from spamming the transcript. */
@@ -4613,6 +4615,7 @@ export class ClaudeAcpAgent {
                     },
                     supportsNotices,
                     transcriptText,
+                    { claudeCode: { kind: "informational", level: message.level } },
                   ),
                 });
                 const noticedTurn = session.activeTurn ?? session.turnQueue?.[0];
@@ -7281,6 +7284,7 @@ export class ClaudeAcpAgent {
         allowPersistentOptions: !noPersistentRule,
         defaultToNo,
         availableModes: this.sessionModes.availableModeIds(session.modes),
+        prePlanMode: session.prePlanMode,
         contextUsedPercent:
           session.contextUsedTokens === undefined || session.contextWindowSize <= 0
             ? undefined
@@ -7320,6 +7324,21 @@ export class ClaudeAcpAgent {
       permissionResult = autoFallback.permissionResult;
       if (autoFallback.fallbackApplied) {
         await this.sessionModes.publishFallbackWarning(sessionId, session);
+      }
+      if (toolName === "ExitPlanMode" && permissionResult.behavior === "allow") {
+        const modeUpdate = permissionResult.updatedPermissions?.find(
+          (update) => update.type === "setMode" && update.destination === "session",
+        );
+        if (modeUpdate?.type === "setMode") {
+          try {
+            await this.sessionModes.publishCurrent(sessionId, modeUpdate.mode);
+            await this.updateConfigOption(sessionId, MODE_CONFIG_ID, modeUpdate.mode);
+          } catch (error) {
+            // The user already approved the plan; a failed notification must not
+            // turn that approval into a failed permission request.
+            this.logger.error("Failed to publish mode after plan approval:", error);
+          }
+        }
       }
       const clearContextMode = decodedPermission.contextResetMode
         ? this.sessionModes.effectiveMode(session, decodedPermission.contextResetMode)
@@ -8034,11 +8053,14 @@ export class ClaudeAcpAgent {
 
     // Extract options from _meta if provided
     const sessionMeta = params._meta as NewSessionMeta | undefined;
-    // Bypass is off for root outside a sandbox, and hosts may opt a session out.
-    // Decided once here: it gates the SDK flag, the spawn-time mode (the SDK
-    // rejects bypassPermissions without the flag), and the mode catalog.
+    // Bypass is off for root outside a sandbox, when settings disable it (the
+    // CLI refuses bypass then too), and hosts may opt a session out. Decided
+    // once here: it gates the SDK flag, the spawn-time mode (the SDK rejects
+    // bypassPermissions without the flag), and the mode catalog.
     const allowBypass =
-      ALLOW_BYPASS && sessionMeta?.claudeCode?.options?.allowDangerouslySkipPermissions !== false;
+      ALLOW_BYPASS &&
+      settingsManager.getSettings().permissions?.disableBypassPermissionsMode !== "disable" &&
+      sessionMeta?.claudeCode?.options?.allowDangerouslySkipPermissions !== false;
 
     const initialPermissionMode = resolvePermissionMode(
       creationOpts.permissionMode ?? settingsManager.getSettings().permissions?.defaultMode,

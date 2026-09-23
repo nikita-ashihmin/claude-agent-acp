@@ -24,7 +24,7 @@ import type {
  */
 export class WriteReporter implements ToolReporter {
   toolUse(input: unknown, { cwd, capabilities }: ToolUseContext): ToolUseFacts {
-    const write = input as FileWriteInput | undefined;
+    const write = normalizeWriteInput(input);
     const displayPath = write?.file_path ? toDisplayPath(write.file_path, cwd) : undefined;
     const facts: ToolUseFacts = {
       title: displayPath ? `Write ${displayPath}` : "Preparing file…",
@@ -44,11 +44,14 @@ export class WriteReporter implements ToolReporter {
           type: "diff",
           path: write.file_path,
           oldText: null,
-          newText: write.content,
+          // The content is absent until the input streams in. The diff still names the file.
+          newText: write.content as string,
         },
       ];
       // A notice holds no file text, so rawInput keeps the content.
-      if (negotiated?.holdsFileText !== false) facts.fileTextKeys = ["content"];
+      if (negotiated?.holdsFileText !== false && write.contentKey) {
+        facts.fileTextKeys = [write.contentKey];
+      }
     } else if (write?.content) {
       facts.display = [textContent(write.content)];
     }
@@ -62,6 +65,31 @@ export class WriteReporter implements ToolReporter {
   hookResult(toolResponse: unknown, context: ToolUseContext): Promise<ToolResultFacts> {
     return finalChange(toolResponse, context);
   }
+}
+
+/** A Write input with the canonical keys, and the input key that holds the file text. */
+type NormalizedWriteInput = Partial<FileWriteInput> & { contentKey?: string };
+
+const WRITE_CONTENT_KEYS = ["content", "file_text", "file_content"] as const;
+
+/**
+ * Reads a Write input the way the CLI validates it. Since CLI 2.1.280 the CLI
+ * accepts `path` for `file_path`, and `file_text` or `file_content` for
+ * `content`. The streamed tool use keeps the original keys. The canonical key
+ * wins when both spellings are present.
+ */
+export function normalizeWriteInput(input: unknown): NormalizedWriteInput | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const raw = input as Record<string, unknown>;
+  const filePath =
+    typeof raw.file_path === "string"
+      ? raw.file_path
+      : typeof raw.path === "string"
+        ? raw.path
+        : undefined;
+  const contentKey = WRITE_CONTENT_KEYS.find((key) => raw[key] !== undefined && raw[key] !== null);
+  const content = contentKey ? (raw[contentKey] as string) : undefined;
+  return { file_path: filePath, content, contentKey };
 }
 
 /** Edit: the diff holds the old and the new text. */

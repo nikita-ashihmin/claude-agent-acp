@@ -3618,6 +3618,113 @@ describe("permission request cancellation", () => {
     });
   });
 
+  it.each([
+    ["exit-plan-bypass", "bypassPermissions", true],
+    ["exit-plan-auto", "auto", true],
+    ["exit-plan-auto", "acceptEdits", false],
+    ["exit-plan-default", "default", true],
+  ])("publishes the effective mode after %s approval", async (optionId, mode, supportsAutoMode) => {
+    const sessionUpdate = vi.fn(async () => {});
+    const mockClient = {
+      sessionUpdate,
+      requestPermission: async () => ({ outcome: { outcome: "selected", optionId } }),
+    } as unknown as AcpClient;
+    const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    const session = injectSession(agent, "session-1");
+    session.modes = {
+      currentModeId: "plan",
+      availableModes: [
+        "default",
+        "plan",
+        "bypassPermissions",
+        ...(optionId === "exit-plan-bypass" ? [] : ["auto"]),
+      ].map((id) => ({
+        id,
+        name: id,
+      })),
+    };
+    session.configOptions = [
+      {
+        id: "mode",
+        name: "Mode",
+        type: "select",
+        currentValue: "plan",
+        options: [],
+      },
+    ];
+    session.modelInfos = [
+      { value: "default", displayName: "Default", description: "", supportsAutoMode },
+    ];
+
+    const result = await agent.canUseTool("session-1")(
+      "ExitPlanMode",
+      { plan: "Implement it" },
+      {
+        signal: new AbortController().signal,
+        suggestions: [],
+        toolUseID: "tool-plan",
+        requestId: "request-plan",
+      },
+    );
+
+    expect(result).toMatchObject({
+      behavior: "allow",
+      updatedPermissions: [{ type: "setMode", mode, destination: "session" }],
+    });
+    expect(session.modes.currentModeId).toBe(mode);
+    expect(sessionUpdate).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      update: { sessionUpdate: "current_mode_update", currentModeId: mode },
+    });
+    expect(sessionUpdate).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      update: {
+        sessionUpdate: "config_option_update",
+        configOptions: [expect.objectContaining({ id: "mode", currentValue: mode })],
+      },
+    });
+  });
+
+  it("keeps the plan approval when publishing the new mode fails", async () => {
+    const error = vi.fn();
+    const mockClient = {
+      sessionUpdate: vi.fn(async (notification: SessionNotification) => {
+        if (notification.update.sessionUpdate === "current_mode_update") {
+          throw new Error("client gone");
+        }
+      }),
+      requestPermission: async () => ({
+        outcome: { outcome: "selected", optionId: "exit-plan-default" },
+      }),
+    } as unknown as AcpClient;
+    const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error });
+    const session = injectSession(agent, "session-1");
+    session.modes = {
+      currentModeId: "plan",
+      availableModes: ["default", "plan"].map((id) => ({ id, name: id })),
+    };
+
+    const result = await agent.canUseTool("session-1")(
+      "ExitPlanMode",
+      { plan: "Implement it" },
+      {
+        signal: new AbortController().signal,
+        suggestions: [],
+        toolUseID: "tool-plan",
+        requestId: "request-plan",
+      },
+    );
+
+    expect(result).toMatchObject({
+      behavior: "allow",
+      updatedPermissions: [{ type: "setMode", mode: "default", destination: "session" }],
+    });
+    expect(error).toHaveBeenCalledWith(
+      "Failed to publish mode after plan approval:",
+      expect.any(Error),
+    );
+  });
+
   it("interrupts the turn after an ExitPlanMode keep-planning rejection", async () => {
     const mockClient = {
       sessionUpdate: async () => {},
@@ -12511,7 +12618,7 @@ describe("assembled assistant text fallback", () => {
     });
   }
 
-  it("does not re-emit the result text after an informational notice delivered it", async () => {
+  it("marks informational notices with metadata", async () => {
     const { agent, updates } = createMockAgentWithCapture();
     // A hook-blocked prompt: the SDK surfaces the block reason as an
     // informational notice and then repeats it on the result with zero output
@@ -12531,7 +12638,34 @@ describe("assembled assistant text fallback", () => {
 
     await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
 
+    const chunks = updates.filter(({ update }) => update.sessionUpdate === "agent_message_chunk");
     expect(messageChunkTexts(updates)).toEqual(["**Warning:** hook says no"]);
+    expect(chunks[0]?.update).toMatchObject({
+      _meta: { claudeCode: { kind: "informational", level: "warning" } },
+    });
+  });
+
+  it("marks info-level notices even when their text has no severity prefix", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    injectSession(agent, [
+      {
+        type: "system",
+        subtype: "informational",
+        content: "plain hook detail",
+        level: "info",
+        session_id: "test-session",
+      },
+      result(),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    const chunks = updates.filter(({ update }) => update.sessionUpdate === "agent_message_chunk");
+    expect(messageChunkTexts(updates)).toEqual(["plain hook detail"]);
+    expect(chunks[0]?.update).toMatchObject({
+      _meta: { claudeCode: { kind: "informational", level: "info" } },
+    });
   });
 
   it("delivers an informational frame as a notice and still owns the result text", async () => {
