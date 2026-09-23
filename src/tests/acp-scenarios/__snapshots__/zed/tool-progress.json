@@ -65,6 +65,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_slow",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -84,6 +89,7 @@
         "status": "in_progress",
         "_meta": {
           "claudeCode": {
+            "toolName": "Bash",
             "toolResponse": {
               "elapsedTimeSeconds": 1
             }
@@ -101,6 +107,7 @@
         "toolCallId": "toolu_slow",
         "_meta": {
           "claudeCode": {
+            "toolName": "Bash",
             "toolResponse": {
               "elapsedTimeSeconds": 2
             }
@@ -118,6 +125,7 @@
         "toolCallId": "toolu_slow",
         "_meta": {
           "claudeCode": {
+            "toolName": "Bash",
             "toolResponse": {
               "elapsedTimeSeconds": 3
             }
@@ -148,6 +156,9 @@
       "sessionId": "<session>",
       "update": {
         "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          },
           "terminal_exit": {
             "terminal_id": "toolu_slow",
             "exit_code": 0,

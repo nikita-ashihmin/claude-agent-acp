@@ -58,6 +58,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read"
+          }
+        },
         "toolCallId": "toolu_read",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -78,6 +83,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read"
+          }
+        },
         "toolCallId": "toolu_read",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -110,7 +120,8 @@
                 "startLine": 1,
                 "totalLines": 1
               }
-            }
+            },
+            "toolName": "Read"
           }
         },
         "toolCallId": "toolu_read",

@@ -47,6 +47,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -66,6 +71,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -91,6 +101,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -157,6 +172,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_edit",
         "sessionUpdate": "tool_call_update",
         "status": "failed",

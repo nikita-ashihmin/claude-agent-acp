@@ -57,6 +57,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Skill"
+          }
+        },
         "toolCallId": "toolu_skill",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -71,6 +76,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Skill"
+          }
+        },
         "toolCallId": "toolu_skill",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -88,7 +98,8 @@
             "toolResponse": {
               "success": true,
               "commandName": "commits"
-            }
+            },
+            "toolName": "Skill"
           }
         },
         "toolCallId": "toolu_skill",

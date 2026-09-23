@@ -322,6 +322,7 @@ describe.skipIf(baselineDir)("ACP scenarios", () => {
       const reports = toolCallReports(zed("bash-foreground"), "toolu_bash");
       expect(reports[0]._meta.claudeCode).toEqual({ toolName: "Bash" });
       expect(reports.at(-1)?._meta.claudeCode).toEqual({
+        toolName: "Bash",
         toolResponse: { stdout: "a.ts\nb.ts", stderr: "", interrupted: false, isImage: false },
       });
       const child = toolCallReports(zed("subagent-task-legacy"), "toolu_sub_read");
@@ -329,6 +330,13 @@ describe.skipIf(baselineDir)("ACP scenarios", () => {
         toolName: "Read",
         parentToolUseId: "toolu_task",
       });
+      // ACP does not merge `_meta` keys, so each update names the parent again.
+      for (const report of child) {
+        expect(report._meta.claudeCode).toMatchObject({
+          toolName: "Read",
+          parentToolUseId: "toolu_task",
+        });
+      }
       const [childRequest] = permissionRequests(zed("subagent-task-legacy"));
       expect(childRequest.toolCall._meta).toEqual({
         claudeCode: { toolName: "Bash", parentToolUseId: "toolu_task" },

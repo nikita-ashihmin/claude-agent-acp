@@ -15,6 +15,10 @@ const TOOL_CALL_LIMIT = 2048;
  * Removes the `_meta` keys of a `tool_call_update` that an earlier report of
  * the same tool call already sent with the same value.
  *
+ * Only an AIR client gets the filtered updates, because AIR merges these
+ * `_meta` keys. ACP does not define a merge for `_meta` keys, so another
+ * client gets every key on every update.
+ *
  * It runs on the final notification, after the native subagent routing,
  * because the routing reads `claudeCode.toolName` and
  * `claudeCode.parentToolUseId` on every update. It compares the keys of

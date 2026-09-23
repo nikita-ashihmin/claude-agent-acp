@@ -47,6 +47,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
         "toolCallId": "toolu_write",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -77,6 +82,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
         "toolCallId": "toolu_write",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -141,6 +151,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Write"
+          }
+        },
         "toolCallId": "toolu_write",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -161,7 +176,8 @@
               "content": "export const x = 1;\n",
               "structuredPatch": [],
               "originalFile": null
-            }
+            },
+            "toolName": "Write"
           }
         },
         "toolCallId": "toolu_write",

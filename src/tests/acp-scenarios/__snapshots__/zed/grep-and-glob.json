@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
         "toolCallId": "toolu_grep",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -60,6 +65,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
         "toolCallId": "toolu_grep",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -75,6 +85,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
         "toolCallId": "toolu_grep",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -101,6 +116,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
         "toolCallId": "toolu_grep",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -118,6 +138,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep"
+          }
+        },
         "toolCallId": "toolu_grep",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -172,6 +197,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob"
+          }
+        },
         "toolCallId": "toolu_glob",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -186,6 +216,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob"
+          }
+        },
         "toolCallId": "toolu_glob",
         "sessionUpdate": "tool_call_update",
         "status": "completed",

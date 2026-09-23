@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
         "toolCallId": "toolu_agent",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -60,6 +65,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
         "toolCallId": "toolu_agent",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -74,6 +84,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
         "toolCallId": "toolu_agent",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -100,6 +115,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
         "toolCallId": "toolu_agent",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -125,6 +145,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
         "toolCallId": "toolu_agent",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -155,7 +180,8 @@
               "description": "Background review",
               "prompt": "Review the diff",
               "outputFile": "/tmp/tasks/a2.output"
-            }
+            },
+            "toolName": "Agent"
           }
         },
         "toolCallId": "toolu_agent",

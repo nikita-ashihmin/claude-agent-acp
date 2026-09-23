@@ -34,7 +34,12 @@
       "update": {
         "sessionUpdate": "tool_call_update",
         "toolCallId": "<id-1>",
-        "status": "in_progress"
+        "status": "in_progress",
+        "_meta": {
+          "claudeCode": {
+            "toolName": "compact"
+          }
+        }
       }
     }
   },
@@ -51,6 +56,11 @@
           "preTokens": 1000,
           "postTokens": 100,
           "durationMs": "<number>"
+        },
+        "_meta": {
+          "claudeCode": {
+            "toolName": "compact"
+          }
         }
       }
     }

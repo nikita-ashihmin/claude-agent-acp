@@ -60,8 +60,11 @@ It gets no `_meta.jetbrains.air` key at all, and none of the removed upstream co
 
 The adapter leaves out only repeated data for such a client:
 
-- A `tool_call_update` leaves out a field or a `_meta` key whose value did not change since the previous report of the same tool call.
+- A `tool_call_update` leaves out a top-level field whose value did not change since the previous report of the same tool call.
   An update with nothing new is not sent.
+- A `tool_call_update` keeps every `_meta` key, also an unchanged one.
+  ACP defines the merge only for the top-level tool call fields, not for `_meta` keys.
+  So a client that reads each update alone still gets `claudeCode.toolName` and `claudeCode.parentToolUseId`.
 - Streamed subagent text is not sent again in full when the complete message arrives, for a client that gets the complete message.
 - A compaction summary is not sent again in full when the chunks that went out before it hold the same text.
 
@@ -228,6 +231,11 @@ The table [Claude tools and ACP fields](#claude-tools-and-acp-fields) names the 
 Rules:
 
 - An update carries only the fields that changed since the last report of that tool call.
+- For an AIR client, the adapter also leaves out the unchanged `_meta` keys of a `tool_call_update`.
+  It compares the keys of `claudeCode`, the keys of `jetbrains.air`, `is_mcp_tool_call`, and `terminal_info`.
+  It never leaves out `terminal_output`, `terminal_output_delta`, `terminal_exit`, or `mcp_output_delta`, because the client appends their data.
+  An AIR client merges these `_meta` keys into the tool call.
+  A client that is not AIR gets the full `_meta` on each update.
 - `rawInput` goes out only when the input is complete. A partial input can refine the title, the kind, and the locations.
 - Input is never copied into `title` or `_meta`, with two exceptions.
   The `title` of a command, a read, a search, or a fetch names the command, the path, the query, or the URL.

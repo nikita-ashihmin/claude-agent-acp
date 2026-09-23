@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_bash",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -71,6 +76,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_bash",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -94,6 +104,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_bash",
         "sessionUpdate": "tool_call_update",
         "status": "failed",

@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
         "toolCallId": "toolu_out",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -70,6 +75,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
         "toolCallId": "toolu_out",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -84,6 +94,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskOutput"
+          }
+        },
         "toolCallId": "toolu_out",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -137,6 +152,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskStop"
+          }
+        },
         "toolCallId": "toolu_stop",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -150,6 +170,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "TaskStop"
+          }
+        },
         "toolCallId": "toolu_stop",
         "sessionUpdate": "tool_call_update",
         "status": "completed",

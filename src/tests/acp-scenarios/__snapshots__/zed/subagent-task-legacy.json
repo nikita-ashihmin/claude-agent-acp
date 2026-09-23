@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_task",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -60,6 +65,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_task",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -85,6 +95,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_task",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -170,6 +185,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_read",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -195,6 +216,7 @@
         "status": "in_progress",
         "_meta": {
           "claudeCode": {
+            "toolName": "Task",
             "toolResponse": {
               "elapsedTimeSeconds": 3,
               "subagentType": "Explore"
@@ -209,6 +231,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_read",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -260,6 +288,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_bash",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -274,6 +308,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_bash",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -333,6 +373,9 @@
           "terminal_output": {
             "terminal_id": "toolu_sub_bash",
             "data": "x.ts"
+          },
+          "claudeCode": {
+            "parentToolUseId": "toolu_task"
           }
         },
         "toolCallId": "toolu_sub_bash",
@@ -346,6 +389,10 @@
       "sessionId": "<session>",
       "update": {
         "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_task"
+          },
           "terminal_exit": {
             "terminal_id": "toolu_sub_bash",
             "exit_code": 0,
@@ -386,6 +433,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -405,6 +458,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -419,6 +478,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_edit",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -491,6 +556,12 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
+          }
+        },
         "toolCallId": "toolu_sub_edit",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -524,7 +595,9 @@
               ],
               "userModified": false,
               "replaceAll": false
-            }
+            },
+            "toolName": "Edit",
+            "parentToolUseId": "toolu_task"
           }
         },
         "toolCallId": "toolu_sub_edit",
@@ -581,6 +654,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_task",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -622,7 +700,8 @@
               "totalTokens": 5,
               "totalToolUseCount": 1,
               "prompt": "Find the parser"
-            }
+            },
+            "toolName": "Task"
           }
         },
         "toolCallId": "toolu_task",

@@ -57,6 +57,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "AskUserQuestion"
+          }
+        },
         "toolCallId": "toolu_ask",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -137,6 +142,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "AskUserQuestion"
+          }
+        },
         "toolCallId": "toolu_ask",
         "sessionUpdate": "tool_call_update",
         "status": "completed",

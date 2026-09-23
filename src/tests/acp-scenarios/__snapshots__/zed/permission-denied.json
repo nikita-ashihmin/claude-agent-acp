@@ -65,6 +65,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_denied",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -93,6 +98,7 @@
         ],
         "_meta": {
           "claudeCode": {
+            "toolName": "Bash",
             "toolResponse": {
               "decisionReasonType": "rule",
               "decisionReason": "Denied by rule Bash(rm:*)",
@@ -125,6 +131,9 @@
       "sessionId": "<session>",
       "update": {
         "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          },
           "terminal_exit": {
             "terminal_id": "toolu_denied",
             "exit_code": 1,

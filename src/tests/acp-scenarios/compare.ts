@@ -8,9 +8,10 @@
  *
  * - A key that exists only for AIR is gone (see {@link AIR_ONLY_META_KEYS}).
  *   A `session_info_update` that carried only such a key is not sent.
- * - A `tool_call_update` leaves out a field or a merged `_meta` key whose
- *   value did not change since the previous report of the same tool call.
- *   An update with nothing new is not sent.
+ * - A `tool_call_update` leaves out a top-level field whose value did not
+ *   change since the previous report of the same tool call. An update with
+ *   nothing new is not sent. ACP does not merge `_meta` keys, so every
+ *   `_meta` key that origin/main sent must still be there.
  * - A `compaction_update` leaves out a summary whose text is the same as the
  *   `compaction_summary_chunk` text that went out before it.
  */
@@ -122,6 +123,11 @@ function isAppended(key: string): boolean {
   return APPENDED_META_KEYS.has(key.slice("_meta.".length));
 }
 
+/** Whether a client must get the key on every report, because ACP does not merge it. */
+function isMeta(key: string): boolean {
+  return key.startsWith("_meta.");
+}
+
 /**
  * Returns the differences between the baseline and the current traffic that
  * the compatibility rule does not allow. An empty list means compatible.
@@ -173,7 +179,7 @@ export function compareWithBaseline(baseline: Recorded[], current: Recorded[]): 
       for (const [key, value] of g) if (w.get(key) !== value) return false;
       for (const [key, value] of w) {
         if (g.has(key)) continue;
-        if (isAppended(key) || held.get(key) !== value) return false;
+        if (isMeta(key) || held.get(key) !== value) return false;
       }
       const other = (u: Json) =>
         canonical(
@@ -202,7 +208,7 @@ export function compareWithBaseline(baseline: Recorded[], current: Recorded[]): 
     const held = state.get(want.toolCallId as string);
     if (!held) return false;
     for (const [key, value] of flatten(want)) {
-      if (isAppended(key) || held.get(key) !== value) return false;
+      if (isMeta(key) || held.get(key) !== value) return false;
     }
     return true;
   };

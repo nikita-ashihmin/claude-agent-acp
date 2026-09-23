@@ -1738,16 +1738,22 @@ class ClientConnection implements AcpClient {
 }
 
 /**
- * The client that the agent talks to. Every session update passes the
- * {@link ChangedMetaFilter} last, after the native subagent routing, so a
- * `tool_call_update` carries only the `_meta` keys that changed.
+ * The client that the agent talks to. For an AIR client, every session update
+ * passes the {@link ChangedMetaFilter} last, after the native subagent routing,
+ * so a `tool_call_update` carries only the `_meta` keys that changed. ACP
+ * merges only the top-level tool call fields, not the `_meta` keys. So another
+ * client gets the full `_meta` on each update.
  */
 class ChangedMetaClient implements AcpClient {
   private readonly filter = new ChangedMetaFilter();
 
-  constructor(private readonly inner: AcpClient) {}
+  constructor(
+    private readonly inner: AcpClient,
+    private readonly airClient: () => boolean,
+  ) {}
 
   async sessionUpdate(params: AcpSessionNotification): Promise<void> {
+    if (!this.airClient()) return this.inner.sessionUpdate(params);
     const update = this.filter.apply(params.update as SessionNotification["update"]);
     if (update) await this.inner.sessionUpdate({ ...params, update } as AcpSessionNotification);
   }
@@ -2000,7 +2006,7 @@ export class ClaudeAcpAgent {
 
   constructor(client: AcpClient, logger?: Logger) {
     this.sessions = {};
-    this.client = new ChangedMetaClient(client);
+    this.client = new ChangedMetaClient(client, () => isAirClient(this.clientCapabilities));
     this.logger = logger ?? console;
     this.exitPlan = new ExitPlanCoordinator<Session, Turn>({
       currentSession: (id) => this.sessions[id],

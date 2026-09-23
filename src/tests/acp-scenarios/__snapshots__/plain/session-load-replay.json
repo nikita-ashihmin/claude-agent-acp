@@ -194,6 +194,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_r_bash",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -215,6 +220,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_r_edit",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -227,6 +237,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_r_task",
         "sessionUpdate": "tool_call_update",
         "status": "completed",

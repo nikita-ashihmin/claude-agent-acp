@@ -264,6 +264,9 @@
       "sessionId": "<session>",
       "update": {
         "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          },
           "terminal_exit": {
             "terminal_id": "toolu_r_bash",
             "exit_code": 0,
@@ -287,6 +290,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Edit"
+          }
+        },
         "toolCallId": "toolu_r_edit",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -299,6 +307,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
         "toolCallId": "toolu_r_task",
         "sessionUpdate": "tool_call_update",
         "status": "completed",

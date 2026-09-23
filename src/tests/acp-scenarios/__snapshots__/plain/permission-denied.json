@@ -57,6 +57,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_denied",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -85,6 +90,7 @@
         ],
         "_meta": {
           "claudeCode": {
+            "toolName": "Bash",
             "toolResponse": {
               "decisionReasonType": "rule",
               "decisionReason": "Denied by rule Bash(rm:*)",
@@ -100,6 +106,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash"
+          }
+        },
         "toolCallId": "toolu_denied",
         "sessionUpdate": "tool_call_update",
         "rawOutput": "Permission to use Bash has been denied.",

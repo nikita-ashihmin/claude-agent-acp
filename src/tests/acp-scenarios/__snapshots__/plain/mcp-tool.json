@@ -57,6 +57,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "mcp__docs__search"
+          }
+        },
         "toolCallId": "toolu_mcp",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -108,6 +113,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "mcp__docs__search"
+          }
+        },
         "toolCallId": "toolu_mcp",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -141,7 +151,8 @@
                 "type": "text",
                 "text": "Found 2 documents."
               }
-            ]
+            ],
+            "toolName": "mcp__docs__search"
           }
         },
         "toolCallId": "toolu_mcp",

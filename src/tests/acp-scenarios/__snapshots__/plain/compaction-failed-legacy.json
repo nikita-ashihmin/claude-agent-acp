@@ -46,6 +46,11 @@
         ],
         "rawOutput": {
           "error": "Context too small"
+        },
+        "_meta": {
+          "claudeCode": {
+            "toolName": "compact"
+          }
         }
       }
     }

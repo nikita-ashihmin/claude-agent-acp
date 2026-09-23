@@ -46,6 +46,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebFetch"
+          }
+        },
         "toolCallId": "toolu_fetch",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -71,6 +76,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebFetch"
+          }
+        },
         "toolCallId": "toolu_fetch",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -137,6 +147,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebFetch"
+          }
+        },
         "toolCallId": "toolu_fetch",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
@@ -190,6 +205,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebSearch"
+          }
+        },
         "toolCallId": "toolu_search",
         "sessionUpdate": "tool_call_update",
         "rawInput": {
@@ -204,6 +224,11 @@
     "payload": {
       "sessionId": "<session>",
       "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "WebSearch"
+          }
+        },
         "toolCallId": "toolu_search",
         "sessionUpdate": "tool_call_update",
         "status": "completed",
