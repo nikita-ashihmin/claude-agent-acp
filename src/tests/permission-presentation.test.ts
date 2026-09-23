@@ -12,6 +12,7 @@ function airCapabilities(terminalOutput = false, terminalOutputDelta = false, di
     client: true,
     rawInputRendering: false,
     planContentDelta: false,
+    planFile: false,
   });
 }
 describe("Claude permission suggestion normalization", () => {

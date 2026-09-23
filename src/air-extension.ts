@@ -7,6 +7,11 @@ export const AIR_DIFF_PATCH_CAPABILITY = "diffPatch";
 export const AIR_RAW_INPUT_RENDERING_CAPABILITY = "rawInputRendering";
 /** AIR appends the streamed text of a plan. */
 export const AIR_PLAN_CONTENT_DELTA_CAPABILITY = "planContentDelta";
+/**
+ * The plan of an ExitPlanMode is a file. `rawInput.planFilePath` names the
+ * file, and AIR reads the plan from it.
+ */
+export const AIR_PLAN_FILE_CAPABILITY = "planFile";
 
 /** The `_meta.jetbrains.air` keys that the ACP tool call contract defines. */
 export const AIR_COMMAND_TITLE_KEY = "commandTitle";

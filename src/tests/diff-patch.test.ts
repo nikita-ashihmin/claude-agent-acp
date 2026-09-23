@@ -258,6 +258,7 @@ describe("approval patch previews", () => {
         client: true,
         rawInputRendering: false,
         planContentDelta: false,
+        planFile: false,
       }),
       previewContent: await previewPatchContent("Edit", input),
     });
@@ -359,6 +360,7 @@ describe("Write tool calls for an existing file", () => {
     client: true,
     rawInputRendering: false,
     planContentDelta: false,
+    planFile: false,
   });
 
   it("sends the standard diff of the current text, not a creation patch", async () => {

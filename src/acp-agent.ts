@@ -114,6 +114,7 @@ import {
 import {
   AIR_ASYNC_TASKS_CAPABILITY,
   AIR_DIFF_PATCH_CAPABILITY,
+  AIR_PLAN_FILE_CAPABILITY,
   AIR_GOAL_KEY,
   AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
   clientSupportsAirCapability,
@@ -2213,6 +2214,7 @@ export class ClaudeAcpAgent {
                 AIR_ASYNC_TASKS_CAPABILITY,
                 AIR_RECOMMENDED_CONFIG_VALUE_CAPABILITY,
                 AIR_DIFF_PATCH_CAPABILITY,
+                AIR_PLAN_FILE_CAPABILITY,
               ),
               AIR_GOAL_KEY,
               {

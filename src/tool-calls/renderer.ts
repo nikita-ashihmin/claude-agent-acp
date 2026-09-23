@@ -91,6 +91,8 @@ export interface RenderedResult {
   locations?: ToolCallLocation[];
   /** Present when the reporter decided the raw output. */
   rawOutput?: unknown;
+  /** The plan file that `rawInput` names. See {@link ToolResultFacts.planFilePath}. */
+  planFilePath?: string;
   _meta?: Pick<
     ToolUpdateMeta,
     "terminal_info" | "terminal_output" | "terminal_output_delta" | "terminal_exit"
@@ -364,6 +366,10 @@ export class AcpToolCallRenderer {
           ? undefined
           : result.content;
     delete fields.rawOutput;
+    // A plan file that the result names goes out also when the input did not
+    // name it. The field tracker drops a path that the client holds.
+    const planFilePath = fields.planFilePath;
+    delete fields.planFilePath;
     updates.push({
       _meta: {
         claudeCode: { toolName: toolUse.name, ...(options.nonExecution ?? {}) },
@@ -373,6 +379,7 @@ export class AcpToolCallRenderer {
       sessionUpdate: "tool_call_update",
       status: result.is_error === true ? "failed" : "completed",
       ...(rawOutput !== undefined ? { rawOutput } : {}),
+      ...(planFilePath ? { rawInput: planFileInput(toolUse.input, planFilePath) } : {}),
       ...fields,
     });
     return updates;
@@ -519,8 +526,12 @@ export class AcpToolCallRenderer {
     };
   }
 
-  /** `rawInput`. For AIR, without the file text that the diff holds. */
+  /**
+   * `rawInput`. For AIR, without the file text that the diff holds, and with
+   * the path of the plan file in place of the plan text.
+   */
   rawInput(facts: ToolUseFacts, rawInput: unknown): unknown {
+    if (facts.planFilePath) return planFileInput(rawInput, facts.planFilePath);
     if (
       !this.capabilities.air.client ||
       !facts.change?.length ||
@@ -582,4 +593,14 @@ export class AcpToolCallRenderer {
     }
     return meta as ToolUpdateMeta;
   }
+}
+
+/** The input with the path of the plan file in place of the plan text. */
+function planFileInput(rawInput: unknown, planFilePath: string): Record<string, unknown> {
+  const input =
+    rawInput && typeof rawInput === "object" && !Array.isArray(rawInput)
+      ? { ...(rawInput as Record<string, unknown>) }
+      : {};
+  delete input.plan;
+  return { ...input, planFilePath };
 }

@@ -29,6 +29,12 @@ export interface ToolUseFacts {
   display?: ToolCallContent[];
   /** The tool runs a command. Its output goes to the terminal channel. */
   command?: boolean;
+  /**
+   * The absolute path of the plan file that holds the plan text of the input.
+   * Set only for a `planFile` client and an existing file. `rawInput` then
+   * carries this path and not the plan text.
+   */
+  planFilePath?: string;
 }
 
 /** The output of a command, for the terminal channel. */
@@ -54,6 +60,8 @@ export interface ToolResultFacts {
   command?: CommandOutput;
   /** A result that has no display form. */
   rawOutput?: unknown;
+  /** The plan file of the tool use, as {@link ToolUseFacts.planFilePath} defines it. */
+  planFilePath?: string;
 }
 
 /** What a reporter reads besides the input of the tool use. */

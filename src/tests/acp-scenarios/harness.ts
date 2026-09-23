@@ -52,6 +52,7 @@ export const AIR_CAPABILITY_NAMES = [
   "diffPatch",
   "rawInputRendering",
   "planContentDelta",
+  "planFile",
   "agentFileChangeReport",
 ];
 

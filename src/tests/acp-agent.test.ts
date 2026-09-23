@@ -8810,6 +8810,7 @@ describe("logout", () => {
         "asyncTasks",
         "recommendedValue",
         "diffPatch",
+        "planFile",
       ],
       goal: { version: 1, controlMethod: GOAL_CONTROL_METHOD, actions: ["set", "clear"] },
     });
@@ -8831,6 +8832,7 @@ describe("logout", () => {
         "asyncTasks",
         "recommendedValue",
         "diffPatch",
+        "planFile",
       ],
       goal: { version: 1, controlMethod: GOAL_CONTROL_METHOD, actions: ["set", "clear"] },
     });

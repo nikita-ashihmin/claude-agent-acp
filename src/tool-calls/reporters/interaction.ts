@@ -5,7 +5,7 @@ import type {
   TaskUpdateInput,
   TodoWriteInput,
 } from "@anthropic-ai/claude-agent-sdk/sdk-tools.js";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { exitPlanModeRawOutput } from "../../exit-plan.js";
@@ -18,29 +18,68 @@ import type {
   ToolUseFacts,
 } from "../facts.js";
 
-/** ExitPlanMode: the plan is input that the user approves. */
+/**
+ * ExitPlanMode: the plan is input that the user approves.
+ *
+ * Claude writes the plan to a file under `plansDirectory` while it drafts it.
+ * The CLI adds the file text as `plan` and the file path as `planFilePath` to
+ * the complete input. A `planFile` client gets the path and reads the plan
+ * from the file. Without the file, it gets the plan text like other clients.
+ */
 export class ExitPlanModeReporter implements ToolReporter {
-  toolUse(input: unknown): ToolUseFacts {
+  toolUse(input: unknown, { capabilities }: ToolUseContext): ToolUseFacts {
     const plan = (input as { plan?: string } | undefined)?.plan;
+    const planFilePath = capabilities.air.planFile
+      ? existingPlanFile((input as { planFilePath?: unknown } | undefined)?.planFilePath)
+      : undefined;
     return {
       title: "Approve Plan",
       kind: "switch_mode",
-      ...(plan ? { display: [textContent(plan)] } : {}),
+      ...(planFilePath ? { planFilePath } : plan ? { display: [textContent(plan)] } : {}),
     };
   }
 
   /** The approval text repeats the plan, which the input holds. */
-  toolResult(): ToolResultFacts {
-    return { title: "Exited Plan Mode", rawOutput: undefined };
+  toolResult(context: ToolResultContext): ToolResultFacts {
+    const planFilePath = resultPlanFile(context);
+    return {
+      title: "Exited Plan Mode",
+      rawOutput: undefined,
+      ...(planFilePath ? { planFilePath } : {}),
+    };
   }
 
   /**
    * The rejection reason has no display form. Claude fences it, so unfence it.
    * A client that is not AIR gets the error text as the result to show.
    */
-  errorResult({ toolUse, result, capabilities }: ToolResultContext): ToolResultFacts | undefined {
+  errorResult(context: ToolResultContext): ToolResultFacts | undefined {
+    const { toolUse, result, capabilities } = context;
     if (!capabilities.air.client) return undefined;
-    return { rawOutput: exitPlanModeRawOutput(toolUse.name, result.content) };
+    const planFilePath = resultPlanFile(context);
+    return {
+      rawOutput: exitPlanModeRawOutput(toolUse.name, result.content),
+      ...(planFilePath ? { planFilePath } : {}),
+    };
+  }
+}
+
+/** The plan file of a result: the path of the input, else the `filePath` of the structured result. */
+function resultPlanFile({ toolUse, structured, capabilities }: ToolResultContext) {
+  if (!capabilities.air.planFile) return undefined;
+  return (
+    existingPlanFile((toolUse.input as { planFilePath?: unknown } | undefined)?.planFilePath) ??
+    existingPlanFile((structured as { filePath?: unknown } | undefined)?.filePath)
+  );
+}
+
+/** The path when it is an absolute path of a regular file, else undefined. */
+function existingPlanFile(value: unknown): string | undefined {
+  if (typeof value !== "string" || !path.isAbsolute(value)) return undefined;
+  try {
+    return statSync(value).isFile() ? value : undefined;
+  } catch {
+    return undefined;
   }
 }
 

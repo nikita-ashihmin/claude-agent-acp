@@ -31,6 +31,8 @@ import {
   runScenario,
   type Scenario,
   type ScenarioRun,
+  streamMessage,
+  toolCall,
 } from "./acp-scenarios/harness.js";
 import { SCENARIOS } from "./acp-scenarios/scenarios.js";
 import {
@@ -510,6 +512,96 @@ describe.skipIf(baselineDir)("ACP scenarios", () => {
       const write = toolCallReports(air("write-new"), "toolu_write");
       for (const report of write) expect(report.rawInput ?? {}).not.toHaveProperty("content");
       expect(write[0]).not.toHaveProperty("rawInput");
+    });
+
+    describe("ExitPlanMode with a plan file", () => {
+      const plan = "# Plan\n1. Do it";
+      /**
+       * The CLI streams the input that the model wrote, which has no plan.
+       * The complete message and canUseTool get the text and the path of the
+       * plan file. The structured result names the file again.
+       */
+      const planFileScenario = (options: { file: boolean; reject?: boolean }): Scenario => ({
+        name: "exit-plan-file",
+        ...(options.file ? { files: { "plans/plan.md": plan } } : {}),
+        ...(options.reject ? { permission: "reject_once" } : {}),
+        turns: [
+          async function* (ctx) {
+            const planFilePath = path.join(ctx.cwd, "plans", "plan.md");
+            const input = { plan, planFilePath };
+            yield* streamMessage("msg_toolu_plan", [
+              { type: "tool_use", id: "toolu_plan", name: "ExitPlanMode", input: {} },
+            ]);
+            yield* toolCall(
+              ctx,
+              { id: "toolu_plan", name: "ExitPlanMode", input },
+              options.reject
+                ? {
+                    ask: true,
+                    isError: true,
+                    content: "```\nThe user doesn't want to proceed with this tool use.\n```",
+                  }
+                : {
+                    ask: true,
+                    content: `User has approved your plan.\n\n## Approved Plan:\n${plan}`,
+                    structured: { plan, isAgent: false, filePath: planFilePath },
+                  },
+            );
+            yield result();
+          },
+        ],
+      });
+      it("sends the path and no plan text in every report", async () => {
+        const recorded = await runAir(planFileScenario({ file: true }));
+        const reports = toolCallReports(recorded, "toolu_plan");
+        const [request] = permissionRequests(recorded);
+        const withInput = [...reports, request.toolCall].filter((r) => "rawInput" in r);
+        expect(withInput.length).toBeGreaterThan(0);
+        for (const report of withInput) {
+          expect(report.rawInput).toEqual({ planFilePath: expect.stringMatching(/plan\.md$/) });
+          expect(path.isAbsolute(report.rawInput.planFilePath)).toBe(true);
+        }
+        expect(reports[0]).toMatchObject({ sessionUpdate: "tool_call" });
+        expect(reports[0]).not.toHaveProperty("rawInput");
+        expect(reports.at(-1)).toMatchObject({ status: "completed", title: "Exited Plan Mode" });
+        expect(JSON.stringify([reports, request])).not.toContain("Do it");
+      });
+
+      it("sends the path with a rejection", async () => {
+        const recorded = await runAir(planFileScenario({ file: true, reject: true }));
+        const reports = toolCallReports(recorded, "toolu_plan");
+        const [request] = permissionRequests(recorded);
+        expect(request.toolCall.rawInput).toEqual({ planFilePath: expect.any(String) });
+        expect(reports.at(-1)).toMatchObject({ status: "failed" });
+        expect(JSON.stringify([reports, request])).not.toContain("Do it");
+      });
+
+      it("sends the plan text when the plan file does not exist", async () => {
+        const recorded = await runAir(planFileScenario({ file: false }));
+        const [request] = permissionRequests(recorded);
+        expect(request.toolCall.rawInput).toEqual({ plan, planFilePath: expect.any(String) });
+      });
+
+      it("sends the plan text to an AIR client without planFile", async () => {
+        const recorded = await runAir(planFileScenario({ file: true }), ["planFile"]);
+        const [request] = permissionRequests(recorded);
+        expect(request.toolCall.rawInput).toEqual({ plan, planFilePath: expect.any(String) });
+      });
+
+      it("sends the whole input to a client that is not AIR", async () => {
+        for (const profile of [PROFILES.plain, PROFILES.zed]) {
+          resetIds();
+          const recorded = (await runScenario(Agent, profile, planFileScenario({ file: true })))
+            .raw;
+          const [request] = permissionRequests(recorded);
+          expect(request.toolCall.rawInput).toEqual({ plan, planFilePath: expect.any(String) });
+          expect(request.toolCall.content).toEqual([
+            { type: "content", content: { type: "text", text: plan } },
+          ]);
+          const reports = toolCallReports(recorded, "toolu_plan");
+          expect(reports.some((r) => r.rawInput?.plan === plan)).toBe(true);
+        }
+      });
     });
 
     it("sends the Bash output as terminal deltas", () => {

@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { ClientCapabilities } from "@agentclientprotocol/sdk";
 import { AcpClient, toAcpNotifications, ToolUseCache } from "../acp-agent.js";
 import { ClientCapabilities as ToolCallCapabilities } from "../tool-calls/client-capabilities.js";
@@ -25,7 +28,10 @@ const air: ClientCapabilities = {
     terminal_output: true,
     terminal_output_delta: true,
     jetbrains: {
-      air: { version: 1, capabilities: ["diffPatch", "rawInputRendering", "planContentDelta"] },
+      air: {
+        version: 1,
+        capabilities: ["diffPatch", "rawInputRendering", "planContentDelta", "planFile"],
+      },
     },
   },
 };
@@ -71,11 +77,16 @@ describe("ClientCapabilities", () => {
       terminalOutput: true,
       terminalOutputDelta: true,
       diffPatch: true,
-      air: { client: true, rawInputRendering: true, planContentDelta: true },
+      air: { client: true, rawInputRendering: true, planContentDelta: true, planFile: true },
     });
     expect(
       ToolCallCapabilities.from({ _meta: { rawInputRendering: true } } as ClientCapabilities).air,
-    ).toEqual({ client: false, rawInputRendering: false, planContentDelta: false });
+    ).toEqual({
+      client: false,
+      rawInputRendering: false,
+      planContentDelta: false,
+      planFile: false,
+    });
   });
 });
 
@@ -271,6 +282,95 @@ describe("the ACP tool call contract", () => {
       });
       expect(updates[0]).toMatchObject({ status: "failed", rawOutput: "Keep the tests" });
       expect(updates[0]).not.toHaveProperty("content");
+    });
+
+    describe("with a plan file", () => {
+      let dir: string;
+      let planFilePath: string;
+      const planFileAir: ClientCapabilities = {
+        _meta: { jetbrains: { air: { version: 1, capabilities: ["planFile"] } } },
+      };
+
+      beforeEach(() => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-file-"));
+        planFilePath = path.join(dir, "plan.md");
+        fs.writeFileSync(planFilePath, "1. Do it");
+      });
+
+      afterEach(() => {
+        fs.rmSync(dir, { recursive: true, force: true });
+      });
+
+      it("sends the plan file path and no plan text to a planFile client", () => {
+        const { call, updates } = report(
+          planFileAir,
+          "ExitPlanMode",
+          { plan: "1. Do it", planFilePath },
+          { content: "User has approved your plan.\n\n## Approved Plan:\n1. Do it" },
+        );
+        expect(call.rawInput).toEqual({ planFilePath });
+        expect(call.content).toEqual([]);
+        expect(updates[0]).toMatchObject({
+          status: "completed",
+          title: "Exited Plan Mode",
+          rawInput: { planFilePath },
+        });
+        expect(JSON.stringify([call, updates])).not.toContain("Do it");
+      });
+
+      it("sends the plan file path with the rejection reason", () => {
+        const { updates } = report(
+          planFileAir,
+          "ExitPlanMode",
+          { plan: "1. Do it", planFilePath },
+          { content: "```\nKeep the tests\n```", is_error: true },
+        );
+        expect(updates[0]).toMatchObject({
+          status: "failed",
+          rawOutput: "Keep the tests",
+          rawInput: { planFilePath },
+        });
+      });
+
+      it("sends the plan file of the structured result when the input names none", () => {
+        const { call, updates } = report(planFileAir, "ExitPlanMode", input, {
+          content: "User has approved your plan.",
+          structured: { plan: "1. Do it", isAgent: false, filePath: planFilePath },
+        });
+        expect(call.rawInput).toEqual(input);
+        expect(updates[0]).toMatchObject({ rawInput: { planFilePath } });
+      });
+
+      it("sends the plan text when the plan file does not exist", () => {
+        const missing = { plan: "1. Do it", planFilePath: path.join(dir, "missing.md") };
+        const { call, updates } = report(planFileAir, "ExitPlanMode", missing, {
+          content: "User has approved your plan.",
+        });
+        expect(call.rawInput).toEqual(missing);
+        expect(call.content).toEqual([
+          { type: "content", content: { type: "text", text: "1. Do it" } },
+        ]);
+        expect(updates[0]).not.toHaveProperty("rawInput");
+      });
+
+      it("sends the plan text to an AIR client without planFile", () => {
+        const withFile = { plan: "1. Do it", planFilePath };
+        const { call } = report(terminalAir, "ExitPlanMode", withFile);
+        expect(call.rawInput).toEqual(withFile);
+        expect(call.content).toEqual([
+          { type: "content", content: { type: "text", text: "1. Do it" } },
+        ]);
+      });
+
+      it("sends the whole input to a client that is not AIR", () => {
+        const withFile = { plan: "1. Do it", planFilePath };
+        const { call, updates } = report({}, "ExitPlanMode", withFile, {
+          content: "User has approved your plan.",
+          structured: { plan: "1. Do it", isAgent: false, filePath: planFilePath },
+        });
+        expect(call.rawInput).toEqual(withFile);
+        expect(updates.every((update) => !("rawInput" in update))).toBe(true);
+      });
     });
   });
 

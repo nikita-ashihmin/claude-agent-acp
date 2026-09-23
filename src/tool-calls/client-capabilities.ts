@@ -2,6 +2,7 @@ import type { ClientCapabilities as AcpClientCapabilities } from "@agentclientpr
 import {
   AIR_DIFF_PATCH_CAPABILITY,
   AIR_PLAN_CONTENT_DELTA_CAPABILITY,
+  AIR_PLAN_FILE_CAPABILITY,
   AIR_RAW_INPUT_RENDERING_CAPABILITY,
   clientSupportsAirCapability,
   isAirClient,
@@ -43,6 +44,7 @@ export class ClientCapabilities {
           capabilities,
           AIR_PLAN_CONTENT_DELTA_CAPABILITY,
         ),
+        planFile: clientSupportsAirCapability(capabilities, AIR_PLAN_FILE_CAPABILITY),
       },
     );
   }
@@ -67,10 +69,17 @@ export interface AirCapabilities {
    * does not stream a plan, so the adapter does not use it.
    */
   readonly planContentDelta: boolean;
+  /**
+   * AIR reads the plan of an ExitPlanMode from the file that
+   * `rawInput.planFilePath` names. A report then carries the path and not the
+   * plan text, when the plan file exists.
+   */
+  readonly planFile: boolean;
 }
 
 const NO_AIR: AirCapabilities = {
   client: false,
   rawInputRendering: false,
   planContentDelta: false,
+  planFile: false,
 };
