@@ -3221,6 +3221,7 @@ export class ClaudeAcpAgent {
     //
     // Keyed by the parent tool use of the stream ("" for the top level), so a
     // subagent message gets the same remainder diff as a top-level message.
+    // The entry of a subagent goes when the subagent finishes.
     const streamedBlocksByParent = new Map<string, StreamedBlock[]>();
     const streamedBlocksOf = (parentToolUseId: string | null): StreamedBlock[] => {
       const key = parentToolUseId ?? "";
@@ -4624,7 +4625,11 @@ export class ClaudeAcpAgent {
                   summary: message.summary,
                   output_file: message.output_file,
                 });
-                if (message.tool_use_id) subagents.discardPending(message.tool_use_id);
+                if (message.tool_use_id) {
+                  subagents.discardPending(message.tool_use_id);
+                  // The subagent streams no more text under this parent.
+                  streamedBlocksByParent.delete(message.tool_use_id);
+                }
                 session.liveBackgroundTasks.delete(message.task_id);
                 break;
               case "task_updated":
@@ -4640,6 +4645,10 @@ export class ClaudeAcpAgent {
                   message.patch.status === "killed"
                 ) {
                   await subagents.finishTask(message.task_id, message.patch.status, sendUpdate);
+                  const parentToolUseId = session.liveBackgroundTasks.get(
+                    message.task_id,
+                  )?.parentToolUseId;
+                  if (parentToolUseId) streamedBlocksByParent.delete(parentToolUseId);
                   session.liveBackgroundTasks.delete(message.task_id);
                 }
                 break;

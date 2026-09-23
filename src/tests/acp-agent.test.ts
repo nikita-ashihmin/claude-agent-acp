@@ -11288,6 +11288,43 @@ describe("assembled assistant text fallback", () => {
     expect(messageChunkTexts(updates)).toEqual(["nested ", "report", "!"]);
   });
 
+  it("drops the streamed text record of a finished subagent", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { _meta: { "subagent-transcript": true } };
+    injectSession(agent, [
+      {
+        type: "stream_event",
+        parent_tool_use_id: "tool_use_1",
+        uuid: randomUUID(),
+        session_id: "test-session",
+        event: {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "text_delta", text: "nested " },
+        },
+      },
+      {
+        type: "system",
+        subtype: "task_notification",
+        task_id: "agent-1",
+        tool_use_id: "tool_use_1",
+        status: "completed",
+        summary: "",
+        output_file: "",
+        uuid: randomUUID(),
+        session_id: "test-session",
+      },
+      // The record of the finished stream does not trim a later message.
+      assistantMessage("msg-subagent", [{ type: "text", text: "nested report" }], "tool_use_1"),
+      result(),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "hi" }] });
+
+    expect(messageChunkTexts(updates)).toEqual(["nested ", "nested report"]);
+  });
+
   it("forwards distinct blocks that a gateway splits across same-id messages", async () => {
     const { agent, updates } = createMockAgentWithCapture();
     // Observed with OpenAI-compatible gateways: one response id split into an
