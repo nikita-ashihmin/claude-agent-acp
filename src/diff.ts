@@ -77,6 +77,9 @@ type FileChange = "create" | "update" | "delete";
  * replacement would not match the bytes that Claude writes. It also declines
  * an `old_string` that does not match exactly once, because Claude then
  * normalizes quotes or fails.
+ *
+ * The patch mirrors the input normalization of Claude: see
+ * {@link normalizedToolText} and {@link replacedText}.
  */
 export async function previewPatchContent(
   toolName: string,
@@ -88,46 +91,111 @@ export async function previewPatchContent(
     if (
       typeof edit.file_path !== "string" ||
       typeof edit.old_string !== "string" ||
-      typeof edit.new_string !== "string" ||
-      edit.old_string === edit.new_string ||
-      !isPatchableText(edit.new_string)
+      typeof edit.new_string !== "string"
     ) {
       return undefined;
     }
+    const oldString = edit.old_string;
     const filePath = resolveToolPath(edit.file_path, cwd);
     const oldText = await readPatchSource(filePath);
     if (oldText === undefined) return undefined;
-    if (edit.old_string.length === 0) {
-      // An empty old_string creates the file, or fills an existing empty file.
-      if (oldText !== null && oldText.length > 0) return undefined;
-      return optionalContent(await filePatchContent(filePath, oldText, edit.new_string));
+    // Claude normalizes new_string only when it can read the file.
+    let newString = edit.new_string;
+    if (oldText !== null) {
+      const normalized = normalizedToolText(edit.file_path, newString);
+      if (normalized !== newString && mayKeepEditInput(edit.file_path, filePath)) return undefined;
+      newString = normalized;
+    }
+    if (oldString === newString || !isPatchableText(newString)) return undefined;
+    if (oldString.length === 0) {
+      // An empty old_string creates the file, or fills an existing file that
+      // holds only whitespace. `trim` also removes a byte order mark, whose
+      // handling the adapter does not predict, so such a file is declined.
+      if (oldText !== null && (oldText.trim() !== "" || oldText.includes("\uFEFF"))) {
+        return undefined;
+      }
+      return optionalContent(await filePatchContent(filePath, oldText, newString));
     }
     if (oldText === null) return undefined;
-    const occurrences = oldText.split(edit.old_string).length - 1;
+    const occurrences = oldText.split(oldString).length - 1;
     if (occurrences === 0 || (edit.replace_all !== true && occurrences !== 1)) return undefined;
-    const newText =
-      edit.replace_all === true
-        ? oldText.split(edit.old_string).join(edit.new_string)
-        : oldText.replace(edit.old_string, () => edit.new_string as string);
+    const newText = replacedText(oldText, oldString, newString, edit.replace_all === true);
     return optionalContent(await filePatchContent(filePath, oldText, newText));
   }
 
   if (toolName === "Write") {
     const write = input as WritePreviewInput;
-    if (
-      typeof write.file_path !== "string" ||
-      typeof write.content !== "string" ||
-      !isPatchableText(write.content)
-    ) {
+    if (typeof write.file_path !== "string" || typeof write.content !== "string") {
       return undefined;
     }
+    const content = normalizedToolText(write.file_path, write.content);
+    if (!isPatchableText(content)) return undefined;
     const filePath = resolveToolPath(write.file_path, cwd);
     const oldText = await readPatchSource(filePath);
-    if (oldText === undefined || oldText === write.content) return undefined;
-    return optionalContent(await filePatchContent(filePath, oldText, write.content));
+    if (oldText === undefined || oldText === content) return undefined;
+    return optionalContent(await filePatchContent(filePath, oldText, content));
   }
 
   return undefined;
+}
+
+/**
+ * The text that Claude writes for the `new_string` of an Edit or the
+ * `content` of a Write.
+ *
+ * Claude removes the trailing whitespace of each line, except in a Markdown
+ * file. The test uses the path of the tool input, as Claude does.
+ */
+export function normalizedToolText(filePath: string, text: string): string {
+  if (/\.(md|mdx)$/i.test(filePath)) return text;
+  // The same split and the same pattern as Claude, so that a Unicode space
+  // or a lone CR gets the same result.
+  const parts = text.split(/(\r\n|\n|\r)/);
+  let result = "";
+  for (let index = 0; index < parts.length; index++) {
+    const part = parts[index];
+    result += index % 2 === 0 ? part.replace(/\s+$/, "") : part;
+  }
+  return result;
+}
+
+/**
+ * Whether Claude can leave the Edit input of this path as it is.
+ *
+ * Claude does not read a UNC path, a `\??\` path, or an automount path
+ * under `/net` or `/Network/Servers` to normalize the input. The check is
+ * wider than the Claude check, so the caller declines when it matters.
+ */
+function mayKeepEditInput(inputPath: string, filePath: string): boolean {
+  return [inputPath, filePath].some(
+    (candidate) =>
+      /^[\\/]{2}/u.test(candidate) ||
+      candidate.includes("??") ||
+      /^\/(?:net|network)(?:\/|$)/iu.test(path.posix.normalize(candidate.replaceAll("\\", "/"))),
+  );
+}
+
+/**
+ * The file text after Claude replaces `oldString` with `newString`.
+ *
+ * An empty `newString` deletes a line: when `oldString` does not end with a
+ * line break and the file holds `oldString` and a line break, Claude also
+ * removes that line break. With `replaceAll`, it then replaces only the
+ * occurrences that a line break follows.
+ */
+function replacedText(
+  fileText: string,
+  oldString: string,
+  newString: string,
+  replaceAll: boolean,
+): string {
+  const target =
+    newString === "" && !oldString.endsWith("\n") && fileText.includes(`${oldString}\n`)
+      ? `${oldString}\n`
+      : oldString;
+  return replaceAll
+    ? fileText.split(target).join(newString)
+    : fileText.replace(target, () => newString);
 }
 
 /**
@@ -260,7 +328,8 @@ export function toolUpdateFromDiffToolResponse(toolResponse: unknown): {
 /**
  * The patch content for a Write that creates `filePath` with `content`.
  *
- * Returns undefined when `content` is empty, too large, binary, or contains a
+ * The patch holds the text that Claude writes (see {@link normalizedToolText}).
+ * Returns undefined when that text is empty, too large, binary, or contains a
  * CR. Claude converts the line endings of a written file, so such a patch
  * would not be exact.
  */
@@ -268,8 +337,9 @@ export function creationPatchContent(
   filePath: string,
   content: string,
 ): ToolCallContent | undefined {
-  if (!isPatchableText(content)) return undefined;
-  const hunk = wholeFileHunk(content);
+  const text = normalizedToolText(filePath, content);
+  if (!isPatchableText(text)) return undefined;
+  const hunk = wholeFileHunk(text);
   return hunk ? patchContent(filePath, gitPatchText(filePath, "create", [hunk])) : undefined;
 }
 

@@ -160,6 +160,93 @@ describe("approval patch previews", () => {
     expect(patch).toContain("-b\n\\ No newline at end of file\n+c\n\\ No newline at end of file\n");
   });
 
+  it("strips trailing whitespace from new text like Claude, except in Markdown", async () => {
+    const code = await temporaryFile("a\nb\n");
+    const markdown = await temporaryFile("a\nb\n", "notes.md");
+    const missing = await temporaryFile();
+
+    const edit = patchText(
+      await previewPatchContent("Edit", {
+        file_path: code,
+        old_string: "b",
+        new_string: "c  \nd\t",
+      }),
+    );
+    const markdownEdit = patchText(
+      await previewPatchContent("Edit", {
+        file_path: markdown,
+        old_string: "b",
+        new_string: "c  ",
+      }),
+    );
+    const write = patchText(
+      await previewPatchContent("Write", { file_path: missing, content: "x \ny\u00a0\n" }),
+    );
+
+    expect(edit).toContain("-b\n+c\n+d\n");
+    expect(markdownEdit).toContain("-b\n+c  \n");
+    expect(write).toContain("@@ -0,0 +1,2 @@\n+x\n+y\n");
+    expect(patchText(creationPatchContent(missing, "x \ny\u00a0\n"))).toBe(write);
+    // Claude does not normalize the Edit input of a file that it cannot read.
+    expect(
+      patchText(
+        await previewPatchContent("Edit", {
+          file_path: missing,
+          old_string: "",
+          new_string: "x \n",
+        }),
+      ),
+    ).toContain("+x \n");
+  });
+
+  it("declines a preview when only whitespace would change", async () => {
+    const code = await temporaryFile("a \n");
+
+    expect(
+      await previewPatchContent("Edit", { file_path: code, old_string: "a", new_string: "a  " }),
+    ).toBeUndefined();
+    expect(await previewPatchContent("Write", { file_path: code, content: "a \n" })).toBeDefined();
+    expect(await previewPatchContent("Write", { file_path: code, content: "a\n" })).toBeDefined();
+  });
+
+  it("declines a normalized preview for a path that Claude may not normalize", async () => {
+    const filePath = await temporaryFile("a\n");
+    // POSIX reads `//dir` as `/dir`, but Claude takes it for a UNC path.
+    const uncLike = `/${filePath}`;
+
+    expect(
+      await previewPatchContent("Edit", { file_path: uncLike, old_string: "a", new_string: "b " }),
+    ).toBeUndefined();
+    expect(
+      await previewPatchContent("Edit", { file_path: uncLike, old_string: "a", new_string: "b" }),
+    ).toBeDefined();
+  });
+
+  it("removes the line break of a line that an empty new_string deletes", async () => {
+    const filePath = await temporaryFile("keep\ndrop\nkeep\n");
+    const repeated = await temporaryFile("x\nx");
+
+    const patch = patchText(
+      await previewPatchContent("Edit", {
+        file_path: filePath,
+        old_string: "drop",
+        new_string: "",
+      }),
+    );
+    // Only the occurrence that a line break follows goes with replace_all.
+    const all = patchText(
+      await previewPatchContent("Edit", {
+        file_path: repeated,
+        old_string: "x",
+        new_string: "",
+        replace_all: true,
+      }),
+    );
+
+    expect(patch).toContain("@@ -1,3 +1,2 @@\n keep\n-drop\n keep\n");
+    expect(all).toContain("@@ -1,2 +1 @@\n-x\n x\n");
+  });
+
   it("sends no content when there is no preview", async () => {
     const missing = await temporaryFile();
     const input = { file_path: missing, old_string: "old", new_string: "new" };

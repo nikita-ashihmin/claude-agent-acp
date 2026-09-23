@@ -359,6 +359,13 @@ Unknown fields do not make a valid payload invalid.
 
 Before an `Edit` or `Write` approval, the adapter reads the target file and applies the tool input in memory.
 It sends the resulting patch only when it can predict the written bytes exactly.
+The adapter applies the input normalization of Claude:
+
+- Claude removes the trailing whitespace of each line of the new text, except for a `.md` or `.mdx` path.
+  For an `Edit`, it does this only when it can read the file.
+- An `Edit` with an empty `new_string` also removes the line break after `old_string`.
+  This applies when `old_string` does not end with a line break and the file holds `old_string` and a line break.
+
 This keeps a 12,000-line file out of the approval payload when the change is small.
 The adapter sends no preview patch in these cases, and the tool call keeps its standard diff:
 
@@ -367,6 +374,8 @@ The adapter sends no preview patch in these cases, and the tool call keeps its s
 - The `Edit` file is missing for a non-empty `old_string`.
 - The `old_string` does not match exactly once, and `replace_all` is not set.
 - The change leaves the file unchanged.
+- The `Edit` path is a UNC path, a `\??\` path, or a path under `/net` or `/Network`, and the normalization changes the new text.
+  Claude can skip the normalization for such a path.
 
 An `Edit` input holds a snippet, not the file.
 The tool call therefore shows the standard diff of the snippet until a preview or the final patch replaces it.
