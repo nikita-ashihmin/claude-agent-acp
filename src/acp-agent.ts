@@ -5932,9 +5932,16 @@ export class ClaudeAcpAgent {
                 ? message.parent_tool_use_id
                 : undefined
               : undefined;
+            // `tool_name` names the tool that reports the beat. When the beat
+            // falls back to the parent call, AIR gets the name of that call,
+            // or no name. Every other client gets `tool_name`, like upstream.
+            const toolName =
+              toolCallId !== message.tool_use_id && isAirClient(this.clientCapabilities)
+                ? session.toolUseCache[toolCallId]?.name
+                : message.tool_name;
             const beat = AcpToolCallRenderer.for(this.clientCapabilities).progress({
               toolCallId,
-              toolName: message.tool_name,
+              toolName,
               parentToolUseId: subagentParentToolUseId,
               elapsedTimeSeconds: message.elapsed_time_seconds,
               subagentType: message.subagent_type,

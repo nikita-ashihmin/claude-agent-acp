@@ -24,8 +24,9 @@ export type ToolCallUpdate = SessionNotification["update"];
 export type ToolUpdateMeta = {
   claudeCode?: {
     /* The name of the tool that was used in Claude Code. Also carried as the
-       standard ACP `name` field on the initial `tool_call`. */
-    toolName: string;
+       standard ACP `name` field on the initial `tool_call`. A progress beat
+       for AIR leaves it out when the adapter does not know the tool. */
+    toolName?: string;
     /* The structured output provided by Claude Code. For an AIR client, a
        PostToolUse update carries only the `status` and `isAsync` markers of
        the tool_response: the tool output itself is in the tool-call content. */
@@ -491,7 +492,7 @@ export class AcpToolCallRenderer {
    */
   progress(beat: {
     toolCallId: string;
-    toolName: string;
+    toolName?: string;
     parentToolUseId?: string;
     elapsedTimeSeconds: number;
     subagentType?: string;
@@ -503,7 +504,7 @@ export class AcpToolCallRenderer {
       status: "in_progress",
       _meta: {
         claudeCode: {
-          toolName: beat.toolName,
+          ...(beat.toolName !== undefined ? { toolName: beat.toolName } : {}),
           ...(beat.parentToolUseId ? { parentToolUseId: beat.parentToolUseId } : {}),
           toolResponse: {
             elapsedTimeSeconds: beat.elapsedTimeSeconds,

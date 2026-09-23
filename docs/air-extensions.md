@@ -236,6 +236,8 @@ Rules:
   A command with a terminal never gets a display copy.
 - The raw `tool_result` goes to `rawOutput` only when no other field carries the result.
 - `title` is a short label. It is not the output.
+- A progress beat of a tool call that the client does not know goes to the parent tool call.
+  Its `_meta.claudeCode.toolName` then names the parent tool, or is absent when the adapter does not know that tool.
 - Streamed message text is not sent again in full when the complete message arrives. This applies to subagents too.
 - A compaction summary is not sent again in full at the end when the chunks that went out before it hold the same text.
 

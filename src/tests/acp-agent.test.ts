@@ -19153,7 +19153,11 @@ describe("tool_progress heartbeats", () => {
 
   /** Run a turn carrying `messages`, with `inFlight` tool calls already emitted,
    *  and return the tool_call_updates it produced. */
-  async function run(messages: any[], inFlight: string[]) {
+  async function run(
+    messages: any[],
+    inFlight: string[],
+    options: { clientCapabilities?: ClientCapabilities; toolUseCache?: Record<string, any> } = {},
+  ) {
     const updates: SessionNotification[] = [];
     const mockClient = {
       sessionUpdate: async (n: SessionNotification) => {
@@ -19161,6 +19165,7 @@ describe("tool_progress heartbeats", () => {
       },
     } as unknown as AcpClient;
     const agent = new ClaudeAcpAgent(mockClient, { log: () => {}, error: () => {} });
+    agent.clientCapabilities = options.clientCapabilities;
     const input = new Pushable<any>();
     async function* messageGenerator() {
       const { value, done } = await input[Symbol.asyncIterator]().next();
@@ -19191,6 +19196,7 @@ describe("tool_progress heartbeats", () => {
       query: wrapQuery(messageGenerator()),
       input,
       emittedToolCalls: new Set(inFlight),
+      ...(options.toolUseCache ? { toolUseCache: options.toolUseCache } : {}),
     });
     await agent.prompt({
       sessionId: "test-session",
@@ -19288,6 +19294,33 @@ describe("tool_progress heartbeats", () => {
         subagentRetry: { attempt: 2, max_retries: 5, error_status: 529 },
       },
     });
+  });
+
+  it("sends the parent tool name to AIR when a beat falls back to the parent call", async () => {
+    const toolUseCache = {
+      toolu_task: { type: "tool_use", id: "toolu_task", name: "Agent", input: {} },
+    };
+    const [air] = await run(
+      [beat("toolu_hidden", "toolu_task", { heartbeat: undefined })],
+      ["toolu_task"],
+      { clientCapabilities: AIR_CLIENT_CAPABILITIES, toolUseCache },
+    );
+    const [unknown] = await run(
+      [beat("toolu_hidden", "toolu_other", { heartbeat: undefined })],
+      ["toolu_other"],
+      { clientCapabilities: AIR_CLIENT_CAPABILITIES },
+    );
+    const [plain] = await run(
+      [beat("toolu_hidden", "toolu_task", { heartbeat: undefined })],
+      ["toolu_task"],
+      { toolUseCache },
+    );
+
+    expect(air.toolCallId).toBe("toolu_task");
+    expect((air._meta as any).claudeCode.toolName).toBe("Agent");
+    expect((unknown._meta as any).claudeCode).not.toHaveProperty("toolName");
+    // A client that is not AIR keeps the upstream tool name of the beat.
+    expect((plain._meta as any).claudeCode.toolName).toBe("Bash");
   });
 
   // A subagent's own `bash_progress` reports the inner tool's real id, with the
