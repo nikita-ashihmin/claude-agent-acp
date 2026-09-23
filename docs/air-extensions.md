@@ -16,6 +16,7 @@ It describes only this adapter.
 - [Tool call contract](#tool-call-contract)
 - [Claude tools and ACP fields](#claude-tools-and-acp-fields)
 - [Diff patch](#diff-patch)
+- [Plan file](#plan-file)
 - [Permission presentation](#permission-presentation)
 - [Goal](#goal)
 - [Recommended config values](#recommended-config-values)
@@ -111,7 +112,8 @@ The `initialize` response of an AIR client carries the agent side of the extensi
           "nativeSubagentSessions",
           "asyncTasks",
           "recommendedValue",
-          "diffPatch"
+          "diffPatch",
+          "planFile"
         ],
         "goal": {
           "version": 1,
@@ -139,10 +141,11 @@ The response to a client that is not AIR has no `_meta.jetbrains` key.
 | `asyncTasks`             | yes        | Publishes background work that is not a subagent as async tasks.                        | [Async tasks](#async-tasks)                             |
 | `agentFileChangeReport`  | yes        | Accepts a report request on `session/prompt` and sends the changed file list.           | [Agent file-change report](#agent-file-change-report)   |
 | `nativeSubagentSessions` | yes        | Reports an Agent or Task subagent as a native ACP child session.                        | [Native subagent sessions](#native-subagent-sessions)   |
+| `planFile`               | yes        | Sends the path of the plan file in place of the plan text of an ExitPlanMode.           | [Plan file](#plan-file)                                 |
 | `rawInputRendering`      | no         | Sends no display copy of readable input in `content`. The client renders `rawInput`.    | [Tool call contract](#tool-call-contract)               |
 
 The adapter also reads `planContentDelta`, but the capability has no effect.
-Claude does not stream a plan, so the adapter never sends `contentDelta`.
+Claude does not stream a plan, so the adapter never sends `contentDelta` (see [Plan file](#plan-file)).
 
 The goal extension has no client capability.
 The agent advertises the `goal` object, and the client uses the control method when it wants to.
@@ -278,7 +281,7 @@ For every tool, a client that is not AIR also gets these upstream fields:
 | `WebFetch`                                                     | `kind: fetch`, `title: "Fetch <url>"`. The answer goes to `content`.                                                          | With `rawInputRendering`, no copy of the prompt in `content`.                                                                                                                                  | none                                                                                             |
 | `WebSearch`                                                    | `kind: fetch`, `title: "Search \"<query>\""`. The hits go to `content`.                                                       | none                                                                                                                                                                                           | none                                                                                             |
 | `Agent`, `Task`                                                | `kind: think`, `title` is the description. The report goes to `content` without the model-directed trailer.                   | `_meta.jetbrains.air.subagent: true`. With `rawInputRendering`, no copy of the prompt in `content`. With native subagent sessions, the subagent is a child session.                            | none                                                                                             |
-| `ExitPlanMode`                                                 | `kind: switch_mode`, `title: "Approve Plan"`, `title: "Exited Plan Mode"` after the approval.                                 | The rejection reason goes to `rawOutput` only. With `rawInputRendering`, no copy of the plan in `content`.                                                                                     | The rejection reason goes to `content` and to `rawOutput`, and the approval text to `rawOutput`. |
+| `ExitPlanMode`                                                 | `kind: switch_mode`, `title: "Approve Plan"`, `title: "Exited Plan Mode"` after the approval.                                 | `rawInput.planFilePath` in place of the plan text with `planFile`. The rejection reason goes to `rawOutput` only. With `rawInputRendering`, no copy of the plan in `content`.                  | The rejection reason goes to `content` and to `rawOutput`, and the approval text to `rawOutput`. |
 | `AskUserQuestion`                                              | `kind: other`. The questions go to ACP form elicitation.                                                                      | `title: "Asking for your input"`. With `rawInputRendering`, no copy of the questions in `content`. See [Question custom answers](#question-custom-answers).                                    | The title of a single question is the question.                                                  |
 | `Skill`                                                        | `kind: other`, `title: "Load skill: <name>"`.                                                                                 | `_meta.jetbrains.air.skill`.                                                                                                                                                                   | none                                                                                             |
 | `TodoWrite`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` | The stream reports them as a standard `plan` with entries. Only a permission request shows them as a tool call.               | A plan that repeats the previous plan is not sent.                                                                                                                                             | Every plan goes out.                                                                             |
@@ -392,6 +395,85 @@ Claude converts leading tabs and CRLF line endings in those hunks, so they do no
 If the written file is too large, binary, or contains a CR or a byte order mark, the adapter sends the standard diff.
 A created file gets a creation patch.
 
+## Plan file
+
+AIR shows a plan in one of two modes:
+
+- Streamed text: the agent sends the plan text, and with `planContentDelta` it appends the text in `_meta.jetbrains.air.contentDelta`.
+- Plan file: the agent sends the path of a file that holds the plan. The plan card of AIR opens the file.
+
+This adapter uses the plan file mode by default.
+Claude writes the plan to a file under `plansDirectory` with Write and Edit while it drafts the plan.
+The default `plansDirectory` is `~/.claude/plans/`.
+The file is the single source of the plan, so AIR reads the plan from the file and not from a copy.
+Claude does not stream a plan, so the adapter never uses the streamed text mode.
+
+### Activation
+
+The agent advertises `planFile` to an AIR client in the `initialize` response (see [Agent declaration](#agent-declaration)).
+AIR reads `rawInput.planFilePath` only from an agent that advertised `planFile`.
+The adapter sends the path only when the client declares `planFile` too:
+
+```json
+{
+  "clientCapabilities": {
+    "_meta": {
+      "jetbrains": { "air": { "version": 1, "capabilities": ["planFile"] } }
+    }
+  }
+}
+```
+
+### Claude source
+
+The model calls ExitPlanMode with no plan.
+The CLI adds two keys to the complete input: `plan` holds the text of the plan file, and `planFilePath` holds its absolute path.
+The CLI adds them only when the plan file exists.
+
+| Stage                                    | What the adapter gets                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| Streamed tool input                      | The input of the model: no `plan` and no `planFilePath`. |
+| Complete assistant message               | `plan` and `planFilePath`.                               |
+| `canUseTool`                             | `plan` and `planFilePath`.                               |
+| Structured tool result, PostToolUse hook | `plan` and `filePath` in the `tool_response`.            |
+
+The adapter keeps the plan text for its own use.
+The clear-context choice continues the turn with the plan text.
+
+### ExitPlanMode reports
+
+For a `planFile` client, each ExitPlanMode report that carries `rawInput` has the path and no plan text:
+
+```json
+{ "rawInput": { "planFilePath": "/Users/me/.claude/plans/tidy-plan.md" } }
+```
+
+| Report             | Fields                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------- |
+| `tool_call`        | `title: "Approve Plan"`, `kind: switch_mode`, no `rawInput` while the input streams, and empty `content`. |
+| Refinement         | `rawInput.planFilePath` when the complete message arrives.                                                |
+| Permission request | `toolCall.rawInput.planFilePath`, and the `Ready to code?` permission title.                              |
+| Result             | `status`, `title: "Exited Plan Mode"`, the rejection reason in `rawOutput`, and `rawInput.planFilePath`.  |
+
+The path is absolute, and it names a regular file.
+The field tracker drops a `rawInput` that repeats the value that the client holds.
+The result sends the path of the structured result when the input named no file.
+While the adapter does not know the path, a report carries no `planFilePath` key.
+The adapter never sends a blank path, because AIR reads a present non-file value as a retraction.
+Without `rawInputRendering`, a `planFile` client gets no copy of the plan in `content` either.
+
+### Fallback
+
+The plan text goes out as before in these cases:
+
+- The client does not declare `planFile`.
+- The input names no plan file. An older CLI sends the plan only inline.
+- The plan file does not exist.
+
+`rawInput` then is the SDK input with `plan`, and the input `planFilePath` when it is present.
+AIR then shows the in-memory `plan` text.
+A client that is not AIR always gets the whole SDK input, like upstream.
+
 ## Permission presentation
 
 The adapter uses standard ACP permission requests and responses.
@@ -461,6 +543,7 @@ The client already has the rest of the tool call, because the adapter sends the 
 
 - `title` is the standard tool call title. A Sandbox Network request uses the host. A Computer Use request uses the display name.
 - `rawInput` is the SDK input. An Edit or a Write leaves out the file text, because the diff holds it.
+  An ExitPlanMode for a `planFile` client carries the plan file path and not the plan text (see [Plan file](#plan-file)).
 - `content` is present only with an exact preview patch for a `diffPatch` client.
 - `locations` is present only when a valid `blockedPath` is not a location of the tool call yet.
 - `_meta.claudeCode.mcpServer` names the MCP server of an `mcp__*` tool.
