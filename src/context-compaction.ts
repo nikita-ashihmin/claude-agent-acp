@@ -309,11 +309,10 @@ export class ContextCompactionLifecycle {
     const hasMetadata = Object.keys(metadata).length > 0;
 
     if (this.presentation === "compaction_update") {
-      // A summary that went out as chunks is not sent again in full. For a
-      // client that is not AIR, only when the chunks hold the same text.
-      const summaryStreamed = this.airClient
-        ? state.streamedSummary !== undefined
-        : state.streamedSummary === state.summary;
+      // A summary that went out as chunks is not sent again in full. The
+      // chunks are the raw API text and the summary is the cleaned hook text,
+      // so the summary is left out only when both hold the same text.
+      const summaryStreamed = state.streamedSummary === state.summary;
       const summary =
         firstTerminal && terminalStatus === "completed" && !summaryStreamed
           ? state.summary

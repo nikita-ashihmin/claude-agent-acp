@@ -237,7 +237,7 @@ Rules:
 - The raw `tool_result` goes to `rawOutput` only when no other field carries the result.
 - `title` is a short label. It is not the output.
 - Streamed message text is not sent again in full when the complete message arrives. This applies to subagents too.
-- A compaction summary that went out as chunks is not sent again in full at the end.
+- A compaction summary is not sent again in full at the end when the chunks that went out before it hold the same text.
 
 ### Adapter structure
 

@@ -466,6 +466,22 @@ describe("ContextCompactionLifecycle summary chunks", () => {
   });
 });
 
+describe("ContextCompactionLifecycle summary for AIR", () => {
+  it("sends the summary when it differs from the streamed chunks", async () => {
+    const { sent, compaction } = lifecycle("compaction_update");
+    await compaction.start("cmp-1");
+    await compaction.heartbeat("cmp-1", "<analysis>raw</analysis><summary>Retained");
+    compaction.recordSummary("<summary>\nRetained context.\n</summary>");
+    await compaction.finish("cmp-1", "completed");
+
+    expect(sent.at(-1)).toMatchObject({
+      sessionUpdate: "compaction_update",
+      status: "completed",
+      summary: [{ type: "text", text: "Retained context." }],
+    });
+  });
+});
+
 describe("ContextCompactionLifecycle (tool_call)", () => {
   it("keeps the legacy synthetic tool call and never exposes the summary", async () => {
     const { sent, compaction } = lifecycle("tool_call");
