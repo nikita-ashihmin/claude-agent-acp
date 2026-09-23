@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.81.0](https://github.com/agentclientprotocol/claude-agent-acp/compare/v0.80.0...v0.81.0) (2026-09-22)
+
+
+### Features
+
+* **deps:** update Claude SDK ([#1157](https://github.com/agentclientprotocol/claude-agent-acp/issues/1157)) ([eb989e9](https://github.com/agentclientprotocol/claude-agent-acp/commit/eb989e93f4e20315a85405ef099f97eec899df13))
+* Send experimental session notices for live advisories ([#1155](https://github.com/agentclientprotocol/claude-agent-acp/issues/1155)) ([79851b8](https://github.com/agentclientprotocol/claude-agent-acp/commit/79851b86685b8a0673dec54d85d6fa2a3b749cfb))
+
+## [0.80.0](https://github.com/agentclientprotocol/claude-agent-acp/compare/v0.79.0...v0.80.0) (2026-09-22)
+
+
+### Features
+
+* **deps:** Bump claude-agent-sdk to 0.3.278 ([#1147](https://github.com/agentclientprotocol/claude-agent-acp/issues/1147)) ([5bc3b4e](https://github.com/agentclientprotocol/claude-agent-acp/commit/5bc3b4e5609c7e4290fa1bca50c30c7340de6bbf))
+
+
+### Bug Fixes
+
+* close interrupted compaction lifecycles ([#1154](https://github.com/agentclientprotocol/claude-agent-acp/issues/1154)) ([a05aca6](https://github.com/agentclientprotocol/claude-agent-acp/commit/a05aca6b81bfd172ab47064dd21e835da95fc72b))
+* prefer terminal output deltas ([#1150](https://github.com/agentclientprotocol/claude-agent-acp/issues/1150)) ([c6f9668](https://github.com/agentclientprotocol/claude-agent-acp/commit/c6f9668c1234b43888bc44aaf63daf8be1a745e2))
+
 ## [0.79.0](https://github.com/agentclientprotocol/claude-agent-acp/compare/v0.78.0...v0.79.0) (2026-09-17)
 
 

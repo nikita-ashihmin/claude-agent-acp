@@ -1064,6 +1064,11 @@ The adapter orders the actions.
 The client filters the actions that it cannot run safely and ignores unknown or duplicate values.
 The client must not infer actions from the category.
 
+The model fallback notice also has a standard ACP form.
+The client can declare `clientCapabilities.session.notices` from the ACP Session Notices RFD.
+Then the adapter sends the notice as an ACP `notice` update and sends no AIR advisory record.
+This rule applies also when the client declares `sessionFailure`.
+
 ### Title and details
 
 `title` is the complete normal text: what happened, the retry progress when present, and a short next step.

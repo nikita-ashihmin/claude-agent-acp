@@ -213,6 +213,14 @@ import {
   isCompactSummaryMessage,
 } from "./context-compaction.js";
 import {
+  clientSupportsNotices,
+  MAX_NOTICE_TITLE_LENGTH,
+  normalizeNoticeText,
+  noticeOrTranscriptUpdate,
+  sentenceCase,
+  splitNoticeText,
+} from "./session-notices.js";
+import {
   applyTaskCreate,
   applyTaskList,
   applyTaskUpdate,
@@ -276,8 +284,6 @@ export const CLAUDE_CONFIG_DIR =
   process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), ".claude");
 
 const execFileAsync = promisify(execFile);
-
-const MAX_INLINE_FAILURE_TITLE_LENGTH = 256;
 
 /** Claude CLI emits this synthetic result when an interrupted cycle ends on
  *  queued user input before producing any assistant content. It is a hand-off
@@ -568,6 +574,14 @@ type Turn = {
    *  so the consumer can't promote them via the replay; it falls back to
    *  promoting the queue head when the result arrives. */
   isLocalOnlyCommand: boolean;
+  /** Whitespace-normalized text this turn delivered as live `notice` updates
+   *  (SDK `informational` frames on the notice lane). A hook-blocked turn's
+   *  result repeats the block reason verbatim with zero output tokens; the
+   *  issue-#453 result-text fallback skips a result that only repeats one of
+   *  these, without the notice counting as the turn's answer. Recorded on the
+   *  queue head, not `activeTurn`: a UserPromptSubmit block arrives before
+   *  any echo, so the turn is only promoted when its result lands. */
+  noticeTexts?: string[];
   /** Structured presentation for an exact /usage command. The command still
    * runs through the normal SDK turn so ordering, cancellation, persistence,
    * and replay remain unchanged. Null means the experimental API failed and
@@ -808,7 +822,11 @@ export type Session = {
   /** The last per-model reading seen on this query, autonomous cycles included.
    *  `result.modelUsage` is a running total for the whole query() call rather
    *  than a per-result figure, so consecutive readings are what a result's own
-   *  spend is derived from — this is not itself a turn tally. */
+   *  spend is derived from — this is not itself a turn tally. `undefined` on a
+   *  resumed session until its first result: the CLI continues the running
+   *  total from the totals the transcript saved (SDK 0.3.277+), so that first
+   *  reading is the baseline for later increments, not the first turn's spend
+   *  (see resumedFirstResultModelUsage). */
   lastModelUsageReading?: ModelTokenTally;
   modes: SessionModeState;
   models: SessionModelState;
@@ -2029,6 +2047,8 @@ export class ClaudeAcpAgent {
       updateConfigOption: (sessionId, configId, value) =>
         this.updateConfigOption(sessionId, configId, value),
       sessionUpdate: (params: SessionNotification) => this.client.sessionUpdate(params),
+      // Capabilities arrive at initialize, after this constructor runs.
+      supportsNotices: () => clientSupportsNotices(this.clientCapabilities),
       logError: (...args: unknown[]) => this.logger.error(...args),
     });
   }
@@ -3267,10 +3287,20 @@ export class ClaudeAcpAgent {
       async (notification) => this.client.sessionUpdate(asSdkSessionNotification(notification)),
       this.logger,
     ));
+    // Adapter-composed advisories (hook feedback, model fallbacks) are live
+    // events, not something the model said. Clients on the notice contract get
+    // them as `notice` updates; the rest keep the bold-label transcript line.
+    const supportsNotices = clientSupportsNotices(this.clientCapabilities);
+    /** Tool uses whose progress already produced a notice: the SDK marks
+     *  repeated `informational` progress for one tool use with its
+     *  `tool_use_id` so hosts can collapse them; a notice has no lifecycle to
+     *  update, so only the first becomes one. */
+    const noticedToolUses = new Set<string>();
     const asyncTasks = (session.asyncTaskRuntime ??= new AsyncTaskRuntime(
       clientSupportsAsyncTasks(this.clientCapabilities),
       params.sessionId,
       async (notification) => this.client.sessionUpdate(asSdkSessionNotification(notification)),
+      { notices: supportsNotices },
     ));
 
     const compaction = new ContextCompactionLifecycle((notification) => sendUpdate(notification), {
@@ -3340,6 +3370,7 @@ export class ClaudeAcpAgent {
       asyncState: "failed" | "stopped",
       context: string,
     ): Promise<void> => {
+      await compaction.interrupt();
       await Promise.all([
         subagents
           .finishAll(nativeState, sendUpdate)
@@ -3474,6 +3505,7 @@ export class ClaudeAcpAgent {
     const activateTurn = (turn: Turn) => {
       session.activeTurn = turn;
       session.cancelled = false;
+      compaction.resume();
       ensureUsageMarkdown(turn);
       session.pendingOrphanResults = 0;
       session.orphanCommands?.clear();
@@ -3838,6 +3870,9 @@ export class ClaudeAcpAgent {
       error: unknown,
       title?: string,
     ) => {
+      if (session.activeTurn && !session.activeTurn.settled) {
+        await compaction.interrupt();
+      }
       if (kind === "auth_required") {
         // One sign-out arrives twice — the synthetic login assistant message
         // and the turn's error-shaped result repeat the same text — and the
@@ -3981,6 +4016,7 @@ export class ClaudeAcpAgent {
               this.trackOrphanCommand(session, active.promptUuid, "started");
             }
           }
+          await compaction.interrupt();
           await settleActive(turnOutcome(session, "cancelled"));
           // The cancelled turn's result may never come (that's why the
           // backstop fired) — close its delivery stretch here so partial
@@ -4099,6 +4135,7 @@ export class ClaudeAcpAgent {
               const queued = findUnsettledTurn(frame.command_uuid);
               if (queued) {
                 queued.commandStarted = true;
+                compaction.resume();
               }
               // ...and promote an already-orphaned command: once dispatched,
               // a bare `cancelled` no longer means "dropped without running".
@@ -4346,7 +4383,6 @@ export class ClaudeAcpAgent {
                   // the interrupted turn's tokens entirely (issue #844). Zero
                   // when the cancel pre-empted the result (wedge/force-cancel).
                   if (session.cancelled && session.activeTurn && !session.activeTurn.settled) {
-                    await compaction.reset();
                     await settleActive(turnOutcome(session, "cancelled"));
                     // An interrupt can pre-empt the turn's result entirely
                     // (nothing ran the result-case `finally`), so close the
@@ -4409,7 +4445,6 @@ export class ClaudeAcpAgent {
                     session.activeTurn &&
                     !session.activeTurn.settled
                   ) {
-                    await compaction.reset();
                     // Deliberately only the ACTIVE turn: a queued turn that
                     // was never echoed is NOT failed here, because an idle
                     // can legitimately precede the SDK picking up freshly
@@ -4531,24 +4566,53 @@ export class ClaudeAcpAgent {
               case "informational": {
                 // Free-form notice from the SDK (e.g. why a UserPromptSubmit/Stop
                 // hook blocked continuation). Surface the text so the user sees it
-                // instead of a silent stop. ACP's agent_message_chunk has no
-                // severity field, so fold the level into the text for the more
-                // prominent levels ('info' is transcript-only noise — leave plain).
-                // Sending via sendUpdate also marks the notice as this stretch's
-                // delivered text: a hook-blocked turn's result repeats the block
-                // reason with zero output tokens, and the issue-#453 fallback
-                // must not emit it a second time.
-                const text =
+                // instead of a silent stop. Clients on the notice contract get it
+                // as a `notice` at the SDK's level: 'warning' is the only
+                // prominent one; 'notice' and 'suggestion' are gray status
+                // lines; 'info' shows only in Claude Code's transcript mode, so
+                // it is not worth a live notice at all. For the rest, ACP's
+                // agent_message_chunk has no severity field, so fold the level
+                // into the text for the more prominent levels ('info' is
+                // transcript-only noise — leave plain).
+                //
+                // A hook-blocked turn's result repeats the block reason with zero
+                // output tokens, and the issue-#453 fallback must not emit it a
+                // second time. The transcript line is the stretch's delivered
+                // text via sendUpdate; a notice is not an answer, so instead the
+                // turn remembers the text and the fallback skips a result that
+                // only repeats it (see `Turn.noticeTexts`).
+                if (supportsNotices) {
+                  if (message.level === "info") break;
+                  if (message.tool_use_id) {
+                    if (noticedToolUses.has(message.tool_use_id)) break;
+                    noticedToolUses.add(message.tool_use_id);
+                  }
+                }
+                const severity = message.level === "warning" ? "warning" : "info";
+                const transcriptText =
                   message.level === "info"
                     ? message.content
-                    : `**${message.level[0].toUpperCase()}${message.level.slice(1)}:** ${message.content}`;
+                    : `**${sentenceCase(message.level)}:** ${message.content}`;
                 await sendUpdate({
                   sessionId: message.session_id,
-                  update: {
-                    sessionUpdate: "agent_message_chunk",
-                    content: { type: "text", text },
-                  },
+                  update: noticeOrTranscriptUpdate(
+                    {
+                      severity,
+                      ...splitNoticeText(
+                        message.content,
+                        severity === "warning"
+                          ? "Claude reported a warning"
+                          : "Claude reported a notice",
+                      ),
+                    },
+                    supportsNotices,
+                    transcriptText,
+                  ),
                 });
+                const noticedTurn = session.activeTurn ?? session.turnQueue?.[0];
+                if (supportsNotices && noticedTurn) {
+                  (noticedTurn.noticeTexts ??= []).push(normalizeNoticeText(message.content));
+                }
                 break;
               }
               case "hook_started":
@@ -4748,27 +4812,35 @@ export class ClaudeAcpAgent {
                   ? `${fallbackSummary}\n\n${explanation}`
                   : fallbackSummary;
                 // A silent model swap is a session-level advisory, not something the model said.
-                // Clients that negotiated typed records get it as one; the rest keep the bold-label
-                // transcript line, which was the only way to flag it before.
-                if (supportsAirSessionFailures(this.clientCapabilities)) {
+                // Clients on the ACP notice contract get it as a `notice`; clients that negotiated
+                // AIR typed records get it as one of those; the rest keep the bold-label transcript
+                // line, which was the only way to flag it before.
+                if (!supportsNotices && supportsAirSessionFailures(this.clientCapabilities)) {
                   const useDetails =
                     explanation !== undefined &&
-                    fallbackSummary.length + 2 + explanation.length >
-                      MAX_INLINE_FAILURE_TITLE_LENGTH;
+                    fallbackSummary.length + 2 + explanation.length > MAX_NOTICE_TITLE_LENGTH;
                   await publishSessionFailure("advisory", {
                     title: useDetails ? fallbackSummary : fallbackNotice,
                     ...(useDetails ? { details: explanation } : {}),
                   });
                 } else {
+                  // A title must stand alone: the one-line summary when it is
+                  // short enough, else a generic title with everything in the
+                  // description (the same cap the AIR lane applies above).
+                  const notice =
+                    fallbackSummary.length > MAX_NOTICE_TITLE_LENGTH
+                      ? { title: "Model fallback", description: fallbackNotice }
+                      : {
+                          title: fallbackSummary,
+                          ...(explanation ? { description: explanation } : {}),
+                        };
                   await sendUpdate({
                     sessionId: message.session_id,
-                    update: {
-                      sessionUpdate: "agent_message_chunk",
-                      content: {
-                        type: "text",
-                        text: `**Model fallback:** ${fallbackNotice}`,
-                      },
-                    },
+                    update: noticeOrTranscriptUpdate(
+                      { severity: "warning", ...notice },
+                      supportsNotices,
+                      `**Model fallback:** ${fallbackNotice}`,
+                    ),
                   });
                 }
                 if (persistent) {
@@ -4976,17 +5048,27 @@ export class ClaudeAcpAgent {
                   message.usage.cache_creation_input_tokens;
               }
 
+              const matchingModelUsage = lastAssistantModel
+                ? getMatchingModelUsage(message.modelUsage, lastAssistantModel)
+                : null;
+
               // The same tally split by model, for `_meta.quota.model_usage`.
               // `modelUsage` is a running total for the whole query() call, so
               // this result's own spend is what it added to the previous
               // reading. Advance the reading even for an autonomous result — it
               // is part of the running total the NEXT increment is measured
               // from — but leave the turn tally alone, exactly as above.
+              // A resumed session's first reading has no predecessor and
+              // already contains the pre-resume history, so it only seeds the
+              // baseline; that turn's rows come from the per-turn `usage`.
               const modelUsageReading = normalizeModelUsage(message.modelUsage);
-              const resultModelUsage = modelUsageIncrement(
-                modelUsageReading,
-                session.lastModelUsageReading ?? {},
-              );
+              const resultModelUsage =
+                session.lastModelUsageReading === undefined
+                  ? resumedFirstResultModelUsage(
+                      message.usage,
+                      matchingModelUsage?.key ?? lastAssistantModel,
+                    )
+                  : modelUsageIncrement(modelUsageReading, session.lastModelUsageReading);
               session.lastModelUsageReading = modelUsageReading;
               if (!isAutonomousResult) {
                 session.accumulatedModelUsage = addModelUsage(
@@ -4994,10 +5076,6 @@ export class ClaudeAcpAgent {
                   resultModelUsage,
                 );
               }
-
-              const matchingModelUsage = lastAssistantModel
-                ? getMatchingModelUsage(message.modelUsage, lastAssistantModel)
-                : null;
               // Only overwrite when we have an authoritative, sane value. A miss
               // (e.g. a turn with no top-level assistant message), or a
               // nonsensical non-positive/NaN window (observed from third-party
@@ -5297,7 +5375,10 @@ export class ClaudeAcpAgent {
                     session.activeTurn?.isLocalOnlyCommand ||
                     (!deliveredAssistantText &&
                       !deliveredCompactionOutput &&
-                      (message.usage.output_tokens ?? 0) === 0);
+                      (message.usage.output_tokens ?? 0) === 0 &&
+                      !session.activeTurn?.noticeTexts?.includes(
+                        normalizeNoticeText(message.result),
+                      ));
                   if (shouldForwardResult) {
                     const usageMarkdown = await takeUsageMarkdown(message.result);
                     if (usageMarkdown === null) break;
@@ -6123,6 +6204,10 @@ export class ClaudeAcpAgent {
       clearHookCallbacks(params.sessionId);
       return;
     }
+    // Echo-less commands such as /compact can still be in turnQueue while
+    // their compaction is running. Close it before ANY cancelled prompt
+    // resolves, not just the active-turn idle/backstop paths.
+    await session.contextCompaction?.interrupt();
     try {
       await session.nativeSubagentRuntime?.finishAll(
         "cancelled",
@@ -7717,20 +7802,24 @@ export class ClaudeAcpAgent {
     // The user asked for Fast mode and the SDK is telling us it can't serve it.
     // The description carries the same explanation, but a toggle silently
     // snapping back is the case worth saying out loud once, at the flip.
-    const explain = session.fastModeEnabled && !enabled && nextReason !== undefined;
+    const explanation =
+      nextReason !== undefined ? FAST_MODE_UNAVAILABLE_EXPLANATIONS[nextReason] : undefined;
+    const explain = session.fastModeEnabled && !enabled && explanation !== undefined;
     session.fastModeEnabled = enabled;
     session.fastModeDisabledReason = nextReason;
     this.refreshFastModeOption(session, enabled);
     if (explain) {
       await this.client.sessionUpdate({
         sessionId,
-        update: {
-          sessionUpdate: "agent_message_chunk",
-          content: {
-            type: "text",
-            text: `**Fast mode turned off:** ${FAST_MODE_UNAVAILABLE_EXPLANATIONS[nextReason]}.`,
+        update: noticeOrTranscriptUpdate(
+          {
+            severity: "warning",
+            title: "Fast mode turned off",
+            description: `${sentenceCase(explanation)}.`,
           },
-        },
+          clientSupportsNotices(this.clientCapabilities),
+          `**Fast mode turned off:** ${explanation}.`,
+        ),
       });
     }
     await this.client.sessionUpdate({
@@ -8454,7 +8543,9 @@ export class ClaudeAcpAgent {
           cachedWriteTokens: 0,
         },
         accumulatedModelUsage: {},
-        lastModelUsageReading: {},
+        // A resumed session's running total continues from the transcript's
+        // saved totals, so its first result is a baseline, not an increment.
+        lastModelUsageReading: creationOpts.resume !== undefined ? undefined : {},
         modes,
         models,
         modelInfos,
@@ -8727,8 +8818,8 @@ function finiteCount(value: number | null | undefined): number {
 /** `current - previous` per model, dropping models with nothing to report so a
  *  turn only lists the models it actually ran on. A reading that fell BELOW the
  *  previous one means the running total restarted under us (a mid-session
- *  /clear, a resumed session starting fresh, a zeroed crash result): there is no
- *  usable reference left to subtract, so the reading itself is the increment. */
+ *  /clear, a zeroed crash result): there is no usable reference left to
+ *  subtract, so the reading itself is the increment. */
 function modelUsageIncrement(current: ModelTokenTally, previous: ModelTokenTally): ModelTokenTally {
   const increment: ModelTokenTally = {};
   for (const [model, usage] of Object.entries(current)) {
@@ -8748,6 +8839,36 @@ function modelUsageIncrement(current: ModelTokenTally, previous: ModelTokenTally
     }
   }
   return increment;
+}
+
+/** The per-model rows for the first result of a resumed session. Its
+ *  `modelUsage` reading continues from the totals the transcript saved (SDK
+ *  0.3.277+; older transcripts may hold none), so there is no earlier reading
+ *  to subtract from, and taking the reading itself would charge the whole
+ *  pre-resume history to this one turn. The result's own `usage` is per-turn
+ *  (main agent loop only, like the response's `usage`), so it stands in under
+ *  the turn's top-level model — `key` is that model's `modelUsage` spelling
+ *  when the reading has one, else the assistant message's own. Any subagent
+ *  spend on this one turn goes unlisted rather than over-listed. */
+function resumedFirstResultModelUsage(
+  usage: {
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+    cache_creation_input_tokens?: number | null;
+  },
+  key: string | null,
+): ModelTokenTally {
+  if (key === null) {
+    return {};
+  }
+  const row: AccumulatedUsage = {
+    inputTokens: finiteCount(usage.input_tokens),
+    outputTokens: finiteCount(usage.output_tokens),
+    cachedReadTokens: finiteCount(usage.cache_read_input_tokens),
+    cachedWriteTokens: finiteCount(usage.cache_creation_input_tokens),
+  };
+  return tallyTotal(row) > 0 ? { [key]: row } : {};
 }
 
 /** Fold `increment` into `base` per model — the per-model counterpart of the

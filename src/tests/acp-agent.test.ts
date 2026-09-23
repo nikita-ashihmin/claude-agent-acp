@@ -8330,6 +8330,79 @@ describe("model refusal fallback handling", () => {
     ).toEqual([advisory]);
   });
 
+  it("publishes the model fallback as a notice for clients on the notice contract", async () => {
+    const { agent, sessionUpdate } = createCapturingAgent();
+    await agent.initialize({
+      protocolVersion: 1,
+      clientCapabilities: {
+        session: { notices: {} },
+        // Both lanes advertised: the standard notice wins over the AIR record.
+        _meta: { jetbrains: { air: { version: 1, capabilities: ["sessionFailure"] } } },
+      },
+    });
+    injectGeneratorSession(
+      agent,
+      makeGenerator([
+        refusalFallbackMessage({ api_refusal_explanation: "The request looked like malware." }),
+        successResult(),
+      ]),
+      modelStateOverrides,
+    );
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "test" }] });
+
+    const updates = sessionUpdate.mock.calls.map((c: any[]) => (c[0] as { update: any }).update);
+    // Exactly one surface: no transcript line and no AIR advisory beside the notice.
+    expect(
+      updates.find(
+        (u: any) =>
+          u.sessionUpdate === "agent_message_chunk" && u.content?.text?.includes("Model fallback"),
+      ),
+    ).toBeUndefined();
+    expect(updates.find((u: any) => u._meta?.jetbrains?.air?.sessionFailure)).toBeUndefined();
+
+    const notices = updates.filter((u: any) => u.sessionUpdate === "notice");
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toEqual({
+      sessionUpdate: "notice",
+      severity: "warning",
+      title:
+        "claude-fable-5 declined this request (cyber); retried with claude-opus-4-8. " +
+        "The session will continue on claude-opus-4-8.",
+      description: "The request looked like malware.",
+    });
+    // The swap itself is still reconciled.
+    expect(agent.sessions["test-session"].models.currentModelId).toBe("claude-opus-4-8");
+  });
+
+  it("moves an over-long model fallback summary under a generic notice title", async () => {
+    const { agent, sessionUpdate } = createCapturingAgent();
+    await agent.initialize({
+      protocolVersion: 1,
+      clientCapabilities: { session: { notices: {} } },
+    });
+    const longCategory = "c".repeat(300);
+    injectGeneratorSession(
+      agent,
+      makeGenerator([
+        refusalFallbackMessage({
+          api_refusal_category: longCategory,
+          api_refusal_explanation: "why",
+        }),
+        successResult(),
+      ]),
+      modelStateOverrides,
+    );
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "test" }] });
+
+    const updates = sessionUpdate.mock.calls.map((c: any[]) => (c[0] as { update: any }).update);
+    const notice = updates.find((u: any) => u.sessionUpdate === "notice");
+    expect(notice.title).toBe("Model fallback");
+    expect(notice.description).toContain(longCategory);
+    expect(notice.description).toContain("\n\nwhy");
+  });
+
   it("puts only a genuinely long model fallback explanation in details", async () => {
     const { agent, sessionUpdate } = createCapturingAgent();
     await agent.initialize({
@@ -11806,6 +11879,313 @@ describe("assembled assistant text fallback", () => {
     expect(updatesAtSettle).toEqual(["in_progress", "cancelled"]);
   });
 
+  it.each(["echo", "dispatch", "no echo"] as const)(
+    "closes compaction before a cancelled wedged prompt settles (%s)",
+    async (boundary) => {
+      const { agent, updates } = compactionCapableAgent();
+      agent.forceCancelGraceMs = 20;
+      let releaseGenerator!: () => void;
+      const generatorReleased = new Promise<void>((resolve) => {
+        releaseGenerator = resolve;
+      });
+      injectGeneratorSession(agent, (input) => {
+        async function* generator() {
+          const iter = input[Symbol.asyncIterator]();
+          const first = await iter.next();
+          if (boundary === "echo") {
+            yield userEcho(first.value);
+          } else if (boundary === "dispatch") {
+            yield {
+              type: "command_lifecycle",
+              command_uuid: first.value.uuid,
+              state: "started",
+            };
+          }
+          yield compactingStatus("force-cancel-compaction");
+          await generatorReleased;
+          yield idle;
+        }
+        return generator();
+      });
+
+      let updatesAtSettle: any[] | undefined;
+      const prompt = agent
+        .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "compact it" }] })
+        .then((response) => {
+          updatesAtSettle = compactionUpdates(updates);
+          return response;
+        });
+
+      try {
+        await vi.waitFor(() => {
+          expect(compactionUpdates(updates)).toHaveLength(1);
+        });
+        if (boundary !== "echo") {
+          expect((agent as any).sessions["test-session"].activeTurn).toBeFalsy();
+        }
+        await agent.cancel({ sessionId: "test-session" });
+        await expect(prompt).resolves.toEqual(expect.objectContaining({ stopReason: "cancelled" }));
+        expect(updatesAtSettle).toEqual([
+          {
+            sessionUpdate: "compaction_update",
+            compactionId: "force-cancel-compaction",
+            status: "in_progress",
+            _meta: { jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } } },
+          },
+          {
+            sessionUpdate: "compaction_update",
+            compactionId: "force-cancel-compaction",
+            status: "cancelled",
+          },
+        ]);
+      } finally {
+        // Let the consumer's outstanding next() finish so this regression cannot
+        // leave a live async generator behind, even when an assertion fails.
+        releaseGenerator();
+        await agent.closeSession({ sessionId: "test-session" });
+      }
+    },
+  );
+
+  it.each(["echo", "dispatch", "unattributed opening"] as const)(
+    "discards force-cancelled compaction frames until the next %s",
+    async (nextBoundary) => {
+      const { agent, updates } = compactionCapableAgent();
+      agent.forceCancelGraceMs = 20;
+      let releaseGenerator!: () => void;
+      const generatorReleased = new Promise<void>((resolve) => {
+        releaseGenerator = resolve;
+      });
+      injectGeneratorSession(agent, (input) => {
+        async function* generator() {
+          const iter = input[Symbol.asyncIterator]();
+          const first = await iter.next();
+          yield userEcho(first.value);
+          yield compactingStatus("interrupted");
+          await generatorReleased;
+
+          const lifecycle = (agent as any).sessions["test-session"].contextCompaction;
+          expect(lifecycle.recordSummary("stale summary")).toBe(false);
+          yield compactingStatus("interrupted");
+          yield compactingStatus("unseen-late-opening");
+          yield compactResult("success", "late-completion");
+          yield {
+            type: "system",
+            subtype: "compact_boundary",
+            uuid: "late-boundary",
+            session_id: "test-session",
+            compact_metadata: { trigger: "auto", pre_tokens: 100, post_tokens: 10 },
+          };
+          yield {
+            type: "stream_event",
+            parent_tool_use_id: null,
+            uuid: "late-chunk",
+            session_id: "test-session",
+            event: {
+              type: "content_block_delta",
+              index: 0,
+              delta: {
+                type: "compaction_delta",
+                content: "stale chunk",
+                encrypted_content: null,
+              },
+            },
+          };
+          // The abandoned turn's result must not lift the interruption guard.
+          yield replayedResult("");
+          yield idle;
+          expect(compactionUpdates(updates)).toHaveLength(2);
+
+          const second = await iter.next();
+          if (nextBoundary === "echo") {
+            yield userEcho(second.value);
+          } else if (nextBoundary === "dispatch") {
+            yield {
+              type: "command_lifecycle",
+              command_uuid: second.value.uuid,
+              state: "started",
+            };
+          } else {
+            // Older SDKs may give /compact neither an echo nor dispatch ID.
+            // Omit the ambiguous lifecycle rather than attributing stale work.
+            yield compactingStatus("fresh");
+          }
+          expect(lifecycle.recordSummary("fresh summary")).toBe(
+            nextBoundary !== "unattributed opening",
+          );
+          yield compactResult("success", "fresh");
+          yield replayedResult("");
+          yield idle;
+        }
+        return generator();
+      });
+
+      const prompt = agent.prompt({
+        sessionId: "test-session",
+        prompt: [{ type: "text", text: "compact it" }],
+      });
+      try {
+        await vi.waitFor(() => expect(compactionUpdates(updates)).toHaveLength(1));
+        await agent.cancel({ sessionId: "test-session" });
+        await expect(prompt).resolves.toMatchObject({ stopReason: "cancelled" });
+        releaseGenerator();
+        await agent.prompt({
+          sessionId: "test-session",
+          prompt: [{ type: "text", text: "/compact" }],
+        });
+
+        expect(
+          compactionUpdates(updates).map(({ compactionId, status }) => ({ compactionId, status })),
+        ).toEqual([
+          { compactionId: "interrupted", status: "in_progress" },
+          { compactionId: "interrupted", status: "cancelled" },
+          ...(nextBoundary === "unattributed opening"
+            ? []
+            : [{ compactionId: "fresh", status: "completed" }]),
+        ]);
+        if (nextBoundary !== "unattributed opening") {
+          expect(compactionUpdates(updates).at(-1).summary).toEqual([
+            { type: "text", text: "fresh summary" },
+          ]);
+        }
+        expect(
+          updates.some(
+            (notification) => notification.update.sessionUpdate === "compaction_summary_chunk",
+          ),
+        ).toBe(false);
+      } finally {
+        releaseGenerator();
+        await agent.closeSession({ sessionId: "test-session" });
+      }
+    },
+  );
+
+  it.each([
+    ["ends", false],
+    ["throws", true],
+  ] as const)(
+    "closes an active compaction before the SDK iterator %s",
+    async (_description, shouldThrow) => {
+      const { agent, updates } = compactionCapableAgent();
+      injectGeneratorSession(agent, (input) => {
+        async function* generator() {
+          const iter = input[Symbol.asyncIterator]();
+          const first = await iter.next();
+          yield userEcho(first.value);
+          yield compactingStatus(`iterator-${shouldThrow ? "error" : "eof"}`);
+          if (shouldThrow) {
+            throw new Error("controlled SDK iterator failure");
+          }
+        }
+        return generator();
+      });
+
+      let updatesAtSettle: any[] | undefined;
+      await agent
+        .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "compact it" }] })
+        .then(
+          () => {
+            updatesAtSettle = compactionUpdates(updates);
+          },
+          () => {
+            updatesAtSettle = compactionUpdates(updates);
+          },
+        );
+
+      expect(
+        updatesAtSettle?.map(({ compactionId, status }) => ({ compactionId, status })),
+      ).toEqual([
+        {
+          compactionId: `iterator-${shouldThrow ? "error" : "eof"}`,
+          status: "in_progress",
+        },
+        {
+          compactionId: `iterator-${shouldThrow ? "error" : "eof"}`,
+          status: "cancelled",
+        },
+      ]);
+      expect(compactionUpdates(updates)).toHaveLength(2);
+    },
+  );
+
+  it("resets an active compaction before starting a fresh compaction lifecycle", async () => {
+    const { agent, updates } = compactionCapableAgent();
+    injectGeneratorSession(agent, (input) => {
+      async function* generator() {
+        const iter = input[Symbol.asyncIterator]();
+        const first = await iter.next();
+        yield userEcho(first.value);
+        yield compactingStatus("pre-reset-compaction");
+        yield {
+          type: "conversation_reset",
+          new_conversation_id: "fresh-conversation",
+          uuid: "conversation-reset",
+          session_id: "test-session",
+        };
+        // Reset itself must close the lifecycle, not the later result.
+        expect(compactionUpdates(updates).map((update) => update.status)).toEqual([
+          "in_progress",
+          "cancelled",
+        ]);
+        expect(
+          (agent as any).sessions["test-session"].contextCompaction.recordSummary("stale summary"),
+        ).toBe(false);
+        yield compactResult("success", "stale-reset-result");
+        yield replayedResult("");
+        yield idle;
+
+        const second = await iter.next();
+        yield userEcho(second.value);
+        yield compactingStatus("post-reset-compaction");
+        yield {
+          type: "stream_event",
+          parent_tool_use_id: null,
+          uuid: "fresh-summary",
+          session_id: "test-session",
+          event: {
+            type: "content_block_delta",
+            index: 0,
+            delta: {
+              type: "compaction_delta",
+              content: "fresh summary",
+              encrypted_content: null,
+            },
+          },
+        };
+        yield compactResult("success", "post-reset-result");
+        yield replayedResult("");
+        yield idle;
+      }
+      return generator();
+    });
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "/clear" }] });
+    await agent.prompt({
+      sessionId: "test-session",
+      prompt: [{ type: "text", text: "compact fresh context" }],
+    });
+
+    expect(
+      compactionUpdates(updates).map(({ compactionId, status }) => ({ compactionId, status })),
+    ).toEqual([
+      { compactionId: "pre-reset-compaction", status: "in_progress" },
+      { compactionId: "pre-reset-compaction", status: "cancelled" },
+      { compactionId: "post-reset-compaction", status: "in_progress" },
+      { compactionId: "post-reset-compaction", status: "completed" },
+    ]);
+    expect(
+      updates
+        .map((notification) => notification.update)
+        .filter((update) => update.sessionUpdate === "compaction_summary_chunk"),
+    ).toEqual([
+      {
+        sessionUpdate: "compaction_summary_chunk",
+        compactionId: "post-reset-compaction",
+        content: { type: "text", text: "fresh summary" },
+      },
+    ]);
+  });
+
   it("does not open a compaction entity from API compaction stream blocks alone", async () => {
     // The API block carries no terminal signal; without the CLI's compacting
     // status there is nothing to close an entity but the turn boundary, which
@@ -12152,6 +12532,149 @@ describe("assembled assistant text fallback", () => {
     await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
 
     expect(messageChunkTexts(updates)).toEqual(["**Warning:** hook says no"]);
+  });
+
+  it("delivers an informational frame as a notice and still owns the result text", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { session: { notices: {} } };
+    injectSession(agent, [
+      {
+        type: "system",
+        subtype: "informational",
+        content: "hook says no",
+        level: "warning",
+        session_id: "test-session",
+      },
+      replayedResult("hook says no"),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    // The notice is the turn's delivered text: nothing lands in the transcript,
+    // and the result's repeat of the block reason must not either.
+    expect(messageChunkTexts(updates)).toEqual([]);
+    expect(updates.map((u) => u.update).filter((u) => u.sessionUpdate === "notice")).toEqual([
+      { sessionUpdate: "notice", severity: "warning", title: "hook says no" },
+    ]);
+  });
+
+  it("records the notice against the queued turn when the hook blocks before any echo", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { session: { notices: {} } };
+    // Live frame order for a UserPromptSubmit block (CLI 2.1.x): no user echo
+    // at all — the informational frame, then the 0-token result repeating it,
+    // then idle. The turn is only promoted when the result lands.
+    const blocked =
+      "UserPromptSubmit operation blocked by hook:\nhook says no\n\nOriginal prompt: 1+2";
+    const input = new Pushable<any>();
+    async function* echoless() {
+      yield {
+        type: "system",
+        subtype: "informational",
+        content: blocked,
+        level: "warning",
+        session_id: "test-session",
+      };
+      yield replayedResult(blocked);
+      yield idle;
+    }
+    agent.sessions["test-session"] = mockSessionState({ query: wrapQuery(echoless()), input });
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    expect(messageChunkTexts(updates)).toEqual([]);
+    expect(updates.map((u) => u.update).filter((u) => u.sessionUpdate === "notice")).toEqual([
+      {
+        sessionUpdate: "notice",
+        severity: "warning",
+        title: "UserPromptSubmit operation blocked by hook:",
+        description: "hook says no\n\nOriginal prompt: 1+2",
+      },
+    ]);
+  });
+
+  it("collapses repeated tool-use progress into one notice and drops transcript-only info", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { session: { notices: {} } };
+    const progress = (content: string) => ({
+      type: "system",
+      subtype: "informational",
+      content,
+      level: "notice",
+      tool_use_id: "tool-1",
+      session_id: "test-session",
+    });
+    injectSession(agent, [
+      {
+        type: "system",
+        subtype: "informational",
+        content: "transcript-only",
+        level: "info",
+        session_id: "test-session",
+      },
+      progress("Step 1 of 3"),
+      progress("Step 2 of 3"),
+      progress("Step 3 of 3"),
+      replayedResult("**3**"),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    expect(messageChunkTexts(updates)).toEqual(["**3**"]);
+    expect(updates.map((u) => u.update).filter((u) => u.sessionUpdate === "notice")).toEqual([
+      { sessionUpdate: "notice", severity: "info", title: "Step 1 of 3" },
+    ]);
+  });
+
+  it("still forwards a replayed answer that an info notice merely preceded", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { session: { notices: {} } };
+    injectSession(agent, [
+      {
+        type: "system",
+        subtype: "informational",
+        content: "some status line",
+        level: "info",
+        session_id: "test-session",
+      },
+      replayedResult("**3**"),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    // A notice is not the turn's answer: only a result that repeats it is skipped.
+    expect(messageChunkTexts(updates)).toEqual(["**3**"]);
+  });
+
+  it("maps the SDK's gray informational levels to info notices", async () => {
+    const { agent, updates } = createMockAgentWithCapture();
+    (agent as any).clientCapabilities = { session: { notices: {} } };
+    injectSession(agent, [
+      {
+        type: "system",
+        subtype: "informational",
+        content: "Tip: run /help\nMore detail on a second line.",
+        level: "suggestion",
+        session_id: "test-session",
+      },
+      replayedResult(""),
+      idle,
+    ]);
+
+    await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "1+2" }] });
+
+    expect(messageChunkTexts(updates)).toEqual([]);
+    expect(updates.map((u) => u.update).filter((u) => u.sessionUpdate === "notice")).toEqual([
+      {
+        sessionUpdate: "notice",
+        severity: "info",
+        title: "Tip: run /help",
+        description: "More detail on a second line.",
+      },
+    ]);
   });
 
   it("still forwards the result text after a turn failed without a result", async () => {
@@ -17983,6 +18506,141 @@ describe("prompt response quota metadata (_meta.quota)", () => {
           ],
         ],
       ),
+    );
+    await agent.sessions["test-session"]?.consumer;
+  });
+
+  it("seeds the per-model baseline from a resumed session's first result", async () => {
+    // SDK 0.3.277+: a resumed session's `modelUsage` continues from the totals
+    // the transcript saved, so the first reading holds the pre-resume history.
+    // That turn reports its per-turn `usage` under the top-level model (the
+    // reading's spelling of it) instead of the whole history, and the second
+    // turn's increment is measured from the seeded baseline.
+    const agent = createAgent();
+    injectGeneratorSession(
+      agent,
+      (input) => {
+        async function* messageGenerator() {
+          const iter = input[Symbol.asyncIterator]();
+          const first = await iter.next();
+          yield userEcho(first.value);
+          yield {
+            type: "stream_event",
+            parent_tool_use_id: null,
+            uuid: randomUUID(),
+            session_id: "test-session",
+            event: {
+              type: "message_start",
+              message: {
+                model: "claude-opus-5",
+                usage: {
+                  input_tokens: 10,
+                  output_tokens: 5,
+                  cache_read_input_tokens: 0,
+                  cache_creation_input_tokens: 0,
+                },
+              },
+            },
+          };
+          yield successfulResultMessage({
+            usage: {
+              input_tokens: 10,
+              output_tokens: 5,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            modelUsage: {
+              "claude-opus-5[1m]": modelRow({ inputTokens: 510, outputTokens: 205 }),
+              "claude-haiku-4-5": modelRow({ inputTokens: 900, outputTokens: 300 }),
+            },
+          });
+          yield idle();
+
+          const second = await iter.next();
+          yield userEcho(second.value);
+          yield successfulResultMessage({
+            usage: {
+              input_tokens: 15,
+              output_tokens: 7,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            modelUsage: {
+              "claude-opus-5[1m]": modelRow({ inputTokens: 525, outputTokens: 212 }),
+              "claude-haiku-4-5": modelRow({ inputTokens: 900, outputTokens: 300 }),
+            },
+          });
+          yield idle();
+        }
+        return messageGenerator();
+      },
+      // What createSession seeds for a `resume` (baseline unknown).
+      { lastModelUsageReading: undefined },
+    );
+
+    const first = await promptOnce(agent, "first");
+    expect(first._meta).toEqual(
+      expectedQuotaMeta(
+        { inputTokens: 10, outputTokens: 5, cachedReadTokens: 0, cachedWriteTokens: 0 },
+        [
+          [
+            "claude-opus-5[1m]",
+            { inputTokens: 10, outputTokens: 5, cachedReadTokens: 0, cachedWriteTokens: 0 },
+          ],
+        ],
+      ),
+    );
+
+    const second = await promptOnce(agent, "second");
+    expect(second._meta).toEqual(
+      expectedQuotaMeta(
+        { inputTokens: 15, outputTokens: 7, cachedReadTokens: 0, cachedWriteTokens: 0 },
+        [
+          [
+            "claude-opus-5[1m]",
+            { inputTokens: 15, outputTokens: 7, cachedReadTokens: 0, cachedWriteTokens: 0 },
+          ],
+        ],
+      ),
+    );
+    await agent.sessions["test-session"]?.consumer;
+  });
+
+  it("lists no per-model rows for a resumed first result with no top-level model", async () => {
+    // Without an assistant message there is no model to attribute the per-turn
+    // usage to; an empty list beats charging the pre-resume history.
+    const agent = createAgent();
+    injectGeneratorSession(
+      agent,
+      (input) => {
+        async function* messageGenerator() {
+          const iter = input[Symbol.asyncIterator]();
+          const first = await iter.next();
+          yield userEcho(first.value);
+          yield successfulResultMessage({
+            usage: {
+              input_tokens: 10,
+              output_tokens: 5,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            modelUsage: { "claude-opus-5": modelRow({ inputTokens: 510, outputTokens: 205 }) },
+          });
+          yield idle();
+        }
+        return messageGenerator();
+      },
+      { lastModelUsageReading: undefined },
+    );
+
+    const first = await promptOnce(agent, "first");
+    expect(first._meta).toEqual(
+      expectedQuotaMeta({
+        inputTokens: 10,
+        outputTokens: 5,
+        cachedReadTokens: 0,
+        cachedWriteTokens: 0,
+      }),
     );
     await agent.sessions["test-session"]?.consumer;
   });
