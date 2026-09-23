@@ -1,0 +1,340 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_transcript",
+        "sessionUpdate": "tool_call",
+        "name": "Task",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_transcript",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Summarize"
+        },
+        "title": "Summarize"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_transcript",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Summarize",
+          "prompt": "Summarize the repo"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_transcript",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Summarize",
+          "prompt": "Summarize the repo",
+          "subagent_type": "Explore"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Summarize the repo"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_thought_chunk",
+        "content": {
+          "type": "text",
+          "text": "Look at t"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_thought_chunk",
+        "content": {
+          "type": "text",
+          "text": "he layout."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "The repo has "
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "two packages."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob",
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call",
+        "name": "Glob",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Find",
+        "kind": "search",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob",
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "*"
+        },
+        "title": "Find `*`"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob",
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "a\nb",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "a\nb"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Task"
+          }
+        },
+        "toolCallId": "toolu_transcript",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "Two packages."
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Two packages."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

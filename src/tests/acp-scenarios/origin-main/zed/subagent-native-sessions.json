@@ -1,0 +1,508 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_native",
+        "sessionUpdate": "tool_call",
+        "name": "Agent",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_native",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Fix the build"
+        },
+        "title": "Fix the build",
+        "kind": "think"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_native",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Fix the build",
+          "prompt": "Make the build pass"
+        },
+        "title": "Fix the build",
+        "kind": "think"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_native",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Fix the build",
+          "prompt": "Make the build pass",
+          "subagent_type": "general-purpose"
+        },
+        "title": "Fix the build",
+        "kind": "think",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Make the build pass"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Running t"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "messageId": "msg_native_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "he build."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "messageId": "msg_native_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call",
+        "name": "Grep",
+        "rawInput": {},
+        "status": "pending",
+        "title": "grep",
+        "kind": "search",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "TODO"
+        },
+        "title": "grep \"TODO\"",
+        "kind": "search"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "TODO",
+          "path": "/src"
+        },
+        "title": "grep \"TODO\" /src",
+        "kind": "search",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "src/a.ts",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "src/a.ts"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_native"
+          },
+          "terminal_info": {
+            "terminal_id": "toolu_native_bash"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_native_bash"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "make"
+        },
+        "title": "make",
+        "kind": "execute"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "title": "Build",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "make",
+          "description": "Build"
+        },
+        "title": "make",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_native_bash"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_native_bash",
+        "name": "Bash",
+        "status": "pending",
+        "rawInput": {
+          "command": "make",
+          "description": "Build"
+        },
+        "title": "make",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_native_bash"
+          }
+        ],
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_native"
+          }
+        }
+      },
+      "_meta": {
+        "permission": {
+          "version": 1,
+          "title": "make"
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "<session>"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "terminal_output": {
+            "terminal_id": "toolu_native_bash",
+            "data": "make: *** Error 2"
+          },
+          "claudeCode": {
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_native"
+          },
+          "terminal_exit": {
+            "terminal_id": "toolu_native_bash",
+            "exit_code": 1,
+            "signal": null
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "status": "failed",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_native_bash"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_native",
+        "sessionUpdate": "tool_call_update",
+        "status": "failed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "The build still fails."
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\nThe build still fails.\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

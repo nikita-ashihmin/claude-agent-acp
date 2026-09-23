@@ -1,0 +1,432 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_outer",
+        "sessionUpdate": "tool_call",
+        "name": "Agent",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_outer",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Plan the work"
+        },
+        "title": "Plan the work"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_outer",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Plan the work",
+          "prompt": "Plan it"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_outer",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Plan the work",
+          "prompt": "Plan it",
+          "subagent_type": "Plan"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Plan it"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "toolCallId": "toolu_inner",
+        "sessionUpdate": "tool_call",
+        "name": "Agent",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "toolCallId": "toolu_inner",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Read the spec"
+        },
+        "title": "Read the spec"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "toolCallId": "toolu_inner",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Read the spec",
+          "prompt": "Read spec.md"
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "toolCallId": "toolu_inner",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Read the spec",
+          "prompt": "Read spec.md",
+          "subagent_type": "Explore"
+        },
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Read spec.md"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_inner"
+          }
+        },
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call",
+        "name": "Read",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Read File",
+        "kind": "read",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_inner"
+          }
+        },
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "/spec.md"
+        },
+        "title": "Read /spec.md",
+        "locations": [
+          {
+            "path": "/spec.md",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_inner"
+          }
+        },
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "1\tspec",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\n1\tspec\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "toolCallId": "toolu_inner",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "The spec says X."
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "The spec says X."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Plan:"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "messageId": "msg_outer_text"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": " do X."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "messageId": "msg_outer_text"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_outer",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "Plan: do X."
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Plan: do X."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

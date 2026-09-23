@@ -1,0 +1,337 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_spawned",
+        "subagentSessionId": "agent_n",
+        "name": "Fix the build",
+        "task": "Make the build pass",
+        "capabilities": {}
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Running t"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "messageId": "msg_native_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "he build."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "messageId": "msg_native_sub_1"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Grep",
+            "parentToolUseId": "toolu_native"
+          }
+        },
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call",
+        "name": "Grep",
+        "status": "pending",
+        "title": "grep",
+        "kind": "search",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "title": "grep \"TODO\""
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "TODO",
+          "path": "/src"
+        },
+        "title": "grep \"TODO\" /src"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "toolCallId": "toolu_native_grep",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "src/a.ts"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Bash",
+            "parentToolUseId": "toolu_native"
+          },
+          "terminal_info": {
+            "terminal_id": "toolu_native_bash"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call",
+        "name": "Bash",
+        "status": "pending",
+        "title": "Terminal",
+        "kind": "execute",
+        "content": [
+          {
+            "type": "terminal",
+            "terminalId": "toolu_native_bash"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "title": "make"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "_meta": {
+          "jetbrains": {
+            "air": {
+              "version": 1,
+              "commandTitle": "Build"
+            }
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "command": "make",
+          "description": "Build"
+        }
+      }
+    }
+  },
+  {
+    "kind": "requestPermission",
+    "payload": {
+      "toolCall": {
+        "toolCallId": "toolu_native_bash",
+        "title": "make",
+        "rawInput": {
+          "command": "make",
+          "description": "Build"
+        }
+      },
+      "_meta": {
+        "jetbrains": {
+          "air": {
+            "version": 1,
+            "permission": {
+              "version": 1,
+              "title": "make"
+            }
+          }
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow-once",
+          "name": "Yes",
+          "kind": "allow_once"
+        },
+        {
+          "optionId": "reject",
+          "name": "No",
+          "kind": "reject_once"
+        }
+      ],
+      "sessionId": "agent_n"
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "_meta": {
+          "terminal_output_delta": {
+            "terminal_id": "toolu_native_bash",
+            "data": "make: *** Error 2"
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_n",
+      "update": {
+        "_meta": {
+          "terminal_exit": {
+            "terminal_id": "toolu_native_bash",
+            "exit_code": 1,
+            "signal": null
+          }
+        },
+        "toolCallId": "toolu_native_bash",
+        "sessionUpdate": "tool_call_update",
+        "status": "failed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_state_update",
+        "subagentSessionId": "agent_n",
+        "state": "failed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

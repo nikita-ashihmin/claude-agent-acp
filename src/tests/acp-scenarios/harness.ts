@@ -294,7 +294,14 @@ export async function runScenario(
       return {};
     },
   };
-  const capabilities: ClientCapabilities = { ...profile.capabilities, ...scenario.capabilities };
+  // The `_meta` of the scenario adds to the `_meta` of the profile, so AIR stays AIR.
+  const capabilities: ClientCapabilities = {
+    ...profile.capabilities,
+    ...scenario.capabilities,
+    ...(profile.capabilities._meta || scenario.capabilities?._meta
+      ? { _meta: { ...profile.capabilities._meta, ...scenario.capabilities?._meta } }
+      : {}),
+  };
   activeScript = {
     scenario,
     cwd,

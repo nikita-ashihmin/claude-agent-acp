@@ -1,0 +1,300 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_late",
+        "sessionUpdate": "tool_call",
+        "name": "Agent",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Task",
+        "kind": "think",
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_late",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Check the logs"
+        },
+        "title": "Check the logs",
+        "kind": "think"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_late",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Check the logs",
+          "prompt": "Check logs"
+        },
+        "title": "Check the logs",
+        "kind": "think"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent",
+            "subagent": true
+          }
+        },
+        "toolCallId": "toolu_late",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "description": "Check the logs",
+          "prompt": "Check logs",
+          "subagent_type": "general-purpose"
+        },
+        "title": "Check the logs",
+        "kind": "think",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "Check logs"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_late"
+          }
+        },
+        "toolCallId": "toolu_late_read",
+        "sessionUpdate": "tool_call",
+        "name": "Read",
+        "rawInput": {},
+        "status": "pending",
+        "title": "Read File",
+        "kind": "read",
+        "locations": [],
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_late"
+          }
+        },
+        "toolCallId": "toolu_late_read",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "/var/log/app.log"
+        },
+        "title": "Read /var/log/app.log",
+        "kind": "read",
+        "locations": [
+          {
+            "path": "/var/log/app.log",
+            "line": 1
+          }
+        ],
+        "content": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Agent"
+          }
+        },
+        "toolCallId": "toolu_late",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": [
+          {
+            "type": "text",
+            "text": "The logs are clean."
+          }
+        ],
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "The logs are clean."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<id-1>",
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "toolu_late_read",
+        "status": "in_progress",
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "toolResponse": {
+              "elapsedTimeSeconds": 4
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_late"
+          }
+        },
+        "toolCallId": "toolu_late_read",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "rawOutput": "1\tok",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\n1\tok\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

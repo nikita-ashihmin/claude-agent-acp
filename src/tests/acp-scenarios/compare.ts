@@ -14,6 +14,8 @@
  *   `_meta` key that origin/main sent must still be there.
  * - A `compaction_update` leaves out a summary whose text is the same as the
  *   `compaction_summary_chunk` text that went out before it.
+ * - A subagent message or thought is not sent again in full when the chunks
+ *   of the same message that went out before it hold the same text.
  */
 import type { Recorded } from "./harness.js";
 
@@ -119,6 +121,22 @@ function updateOf(record: Recorded): Json | undefined {
   return (record.payload as { update: Json }).update;
 }
 
+/** The key and the text of a subagent message or thought chunk. */
+function subagentChunk(update: Json | undefined): { key: string; text: string } | undefined {
+  if (
+    update?.sessionUpdate !== "agent_message_chunk" &&
+    update?.sessionUpdate !== "agent_thought_chunk"
+  ) {
+    return undefined;
+  }
+  const parent = ((update._meta as Json | undefined)?.claudeCode as Json | undefined)
+    ?.parentToolUseId;
+  const text = (update.content as Json | undefined)?.text;
+  if (typeof parent !== "string" || typeof update.messageId !== "string") return undefined;
+  if (typeof text !== "string") return undefined;
+  return { key: `${update.sessionUpdate} ${parent} ${update.messageId}`, text };
+}
+
 function isAppended(key: string): boolean {
   return APPENDED_META_KEYS.has(key.slice("_meta.".length));
 }
@@ -142,10 +160,15 @@ export function compareWithBaseline(baseline: Recorded[], current: Recorded[]): 
   const violations: string[] = [];
   const state = new Map<string, Map<string, string>>();
   const summaryChunks = new Map<string, string>();
+  const subagentText = new Map<string, string>();
   let next = 0;
 
   const remember = (update: Json | undefined) => {
     if (!update) return;
+    const chunk = subagentChunk(update);
+    if (chunk && subagentText.get(chunk.key) !== chunk.text) {
+      subagentText.set(chunk.key, (subagentText.get(chunk.key) ?? "") + chunk.text);
+    }
     if (update.sessionUpdate === "tool_call") {
       state.set(update.toolCallId as string, flatten(update));
     } else if (update.sessionUpdate === "tool_call_update") {
@@ -201,9 +224,11 @@ export function compareWithBaseline(baseline: Recorded[], current: Recorded[]): 
     return false;
   };
 
-  /** Whether a baseline tool_call_update repeats only what the client holds. */
+  /** Whether a baseline update repeats only what the client holds. */
   const redundant = (wanted: Recorded): boolean => {
     const want = updateOf(wanted);
+    const chunk = subagentChunk(want);
+    if (chunk) return subagentText.get(chunk.key) === chunk.text;
     if (want?.sessionUpdate !== "tool_call_update") return false;
     const held = state.get(want.toolCallId as string);
     if (!held) return false;

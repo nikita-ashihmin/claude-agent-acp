@@ -535,6 +535,268 @@ export const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    // With native subagent sessions, AIR gets subagent_spawned, the child tool
+    // calls in the child session, and a failed subagent_state_update.
+    name: "subagent-native-sessions",
+    turns: [
+      async function* (ctx) {
+        const parent = "toolu_native";
+        const input = {
+          description: "Fix the build",
+          prompt: "Make the build pass",
+          subagent_type: "general-purpose",
+        };
+        yield* assistantTurn("msg_native", [
+          { type: "tool_use", id: parent, name: "Agent", input },
+        ]);
+        yield system("task_started", {
+          task_id: "agent_n",
+          task_type: "local_agent",
+          description: "Fix the build",
+          subagent_type: "general-purpose",
+          prompt: "Make the build pass",
+          tool_use_id: parent,
+        });
+        yield* assistantTurn(
+          "msg_native_sub_1",
+          [
+            { type: "text", text: "Running the build." },
+            {
+              type: "tool_use",
+              id: "toolu_native_grep",
+              name: "Grep",
+              input: { pattern: "TODO", path: "/src" },
+            },
+          ],
+          parent,
+        );
+        yield toolResult("toolu_native_grep", "src/a.ts", { parent });
+        yield* toolCall(
+          ctx,
+          {
+            id: "toolu_native_bash",
+            name: "Bash",
+            input: { command: "make", description: "Build" },
+          },
+          { ask: true, agentID: "agent_n", parent, isError: true, content: "make: *** Error 2" },
+        );
+        yield toolResult(parent, [{ type: "text", text: "The build still fails." }], {
+          isError: true,
+        });
+        yield system("task_notification", {
+          task_id: "agent_n",
+          status: "failed",
+          summary: "The build still fails.",
+          output_file: "",
+          tool_use_id: parent,
+        });
+        yield result();
+      },
+    ],
+  },
+  {
+    // A subagent starts another subagent. The grandchild tool call names the
+    // inner Agent tool as its parent.
+    name: "subagent-nested",
+    turns: [
+      async function* () {
+        const outer = "toolu_outer";
+        const inner = "toolu_inner";
+        yield* assistantTurn("msg_outer", [
+          {
+            type: "tool_use",
+            id: outer,
+            name: "Agent",
+            input: {
+              description: "Plan the work",
+              prompt: "Plan it",
+              subagent_type: "Plan",
+            },
+          },
+        ]);
+        yield system("task_started", {
+          task_id: "agent_outer",
+          task_type: "local_agent",
+          description: "Plan the work",
+          subagent_type: "Plan",
+          prompt: "Plan it",
+          tool_use_id: outer,
+        });
+        yield* assistantTurn(
+          "msg_inner",
+          [
+            {
+              type: "tool_use",
+              id: inner,
+              name: "Agent",
+              input: {
+                description: "Read the spec",
+                prompt: "Read spec.md",
+                subagent_type: "Explore",
+              },
+            },
+          ],
+          outer,
+        );
+        yield system("task_started", {
+          task_id: "agent_inner",
+          task_type: "local_agent",
+          description: "Read the spec",
+          subagent_type: "Explore",
+          prompt: "Read spec.md",
+          tool_use_id: inner,
+        });
+        yield* assistantTurn(
+          "msg_grandchild",
+          [
+            {
+              type: "tool_use",
+              id: "toolu_grandchild_read",
+              name: "Read",
+              input: { file_path: "/spec.md" },
+            },
+          ],
+          inner,
+        );
+        yield toolResult("toolu_grandchild_read", "1\tspec", { parent: inner });
+        yield toolResult(inner, [{ type: "text", text: "The spec says X." }], { parent: outer });
+        yield system("task_notification", {
+          task_id: "agent_inner",
+          status: "completed",
+          summary: "The spec says X.",
+          output_file: "",
+          tool_use_id: inner,
+        });
+        yield* assistantTurn("msg_outer_text", [{ type: "text", text: "Plan: do X." }], outer);
+        yield toolResult(outer, [{ type: "text", text: "Plan: do X." }]);
+        yield system("task_notification", {
+          task_id: "agent_outer",
+          status: "completed",
+          summary: "Plan: do X.",
+          output_file: "",
+          tool_use_id: outer,
+        });
+        yield result();
+      },
+    ],
+  },
+  {
+    // The result and the progress of a child tool call arrive after the
+    // subagent finished.
+    name: "subagent-late-child-update",
+    turns: [
+      async function* () {
+        const parent = "toolu_late";
+        yield* assistantTurn("msg_late", [
+          {
+            type: "tool_use",
+            id: parent,
+            name: "Agent",
+            input: {
+              description: "Check the logs",
+              prompt: "Check logs",
+              subagent_type: "general-purpose",
+            },
+          },
+        ]);
+        yield system("task_started", {
+          task_id: "agent_late",
+          task_type: "local_agent",
+          description: "Check the logs",
+          subagent_type: "general-purpose",
+          prompt: "Check logs",
+          tool_use_id: parent,
+        });
+        yield* assistantTurn(
+          "msg_late_sub",
+          [
+            {
+              type: "tool_use",
+              id: "toolu_late_read",
+              name: "Read",
+              input: { file_path: "/var/log/app.log" },
+            },
+          ],
+          parent,
+        );
+        yield toolResult(parent, [{ type: "text", text: "The logs are clean." }]);
+        yield system("task_notification", {
+          task_id: "agent_late",
+          status: "completed",
+          summary: "The logs are clean.",
+          output_file: "",
+          tool_use_id: parent,
+        });
+        yield {
+          type: "tool_progress",
+          tool_use_id: "toolu_late_read",
+          tool_name: "Read",
+          parent_tool_use_id: parent,
+          elapsed_time_seconds: 4,
+          uuid: "00000000-0000-4000-8000-00000000a002",
+          session_id: SESSION_ID,
+        };
+        yield toolResult("toolu_late_read", "1\tok", { parent });
+        yield result();
+      },
+    ],
+  },
+  {
+    // A client that declares the subagent-transcript extension gets the
+    // complete subagent message instead of the stream.
+    name: "subagent-transcript-extension",
+    capabilities: { _meta: { "subagent-transcript": true } },
+    turns: [
+      async function* () {
+        const parent = "toolu_transcript";
+        yield* assistantTurn("msg_transcript", [
+          {
+            type: "tool_use",
+            id: parent,
+            name: "Task",
+            input: {
+              description: "Summarize",
+              prompt: "Summarize the repo",
+              subagent_type: "Explore",
+            },
+          },
+        ]);
+        yield system("task_started", {
+          task_id: "agent_t",
+          task_type: "local_agent",
+          description: "Summarize",
+          subagent_type: "Explore",
+          prompt: "Summarize the repo",
+          tool_use_id: parent,
+        });
+        yield* assistantTurn(
+          "msg_transcript_sub",
+          [
+            { type: "thinking", thinking: "Look at the layout." },
+            { type: "text", text: "The repo has two packages." },
+            {
+              type: "tool_use",
+              id: "toolu_transcript_glob",
+              name: "Glob",
+              input: { pattern: "*" },
+            },
+          ],
+          parent,
+        );
+        yield toolResult("toolu_transcript_glob", "a\nb", { parent });
+        yield toolResult(parent, [{ type: "text", text: "Two packages." }]);
+        yield system("task_notification", {
+          task_id: "agent_t",
+          status: "completed",
+          summary: "Two packages.",
+          output_file: "",
+          tool_use_id: parent,
+        });
+        yield result();
+      },
+    ],
+  },
+  {
     name: "todo-write",
     turns: [
       async function* (ctx) {

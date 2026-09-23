@@ -1,0 +1,223 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_spawned",
+        "subagentSessionId": "agent_outer",
+        "name": "Plan the work",
+        "task": "Plan it",
+        "capabilities": {}
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_outer",
+      "update": {
+        "sessionUpdate": "subagent_spawned",
+        "subagentSessionId": "agent_inner",
+        "name": "Read the spec",
+        "task": "Read spec.md",
+        "capabilities": {}
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_inner",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Read",
+            "parentToolUseId": "toolu_inner"
+          }
+        },
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call",
+        "name": "Read",
+        "status": "pending",
+        "title": "Read File",
+        "kind": "read",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_inner",
+      "update": {
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "file_path": "/spec.md"
+        },
+        "title": "Read /spec.md",
+        "locations": [
+          {
+            "path": "/spec.md",
+            "line": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_inner",
+      "update": {
+        "toolCallId": "toolu_grandchild_read",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "```\n1\tspec\n```"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_outer",
+      "update": {
+        "sessionUpdate": "subagent_state_update",
+        "subagentSessionId": "agent_inner",
+        "state": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_outer",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "Plan:"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "messageId": "msg_outer_text"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_outer",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": " do X."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_outer"
+          }
+        },
+        "messageId": "msg_outer_text"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_state_update",
+        "subagentSessionId": "agent_outer",
+        "state": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]

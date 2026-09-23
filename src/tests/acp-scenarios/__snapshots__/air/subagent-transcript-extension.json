@@ -1,0 +1,231 @@
+[
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 3,
+        "size": 200000
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_spawned",
+        "subagentSessionId": "agent_t",
+        "name": "Summarize",
+        "task": "Summarize the repo",
+        "capabilities": {}
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "sessionUpdate": "agent_thought_chunk",
+        "content": {
+          "type": "text",
+          "text": "Look at t"
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "sessionUpdate": "agent_thought_chunk",
+        "content": {
+          "type": "text",
+          "text": "he layout."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "The repo has "
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "sessionUpdate": "agent_message_chunk",
+        "content": {
+          "type": "text",
+          "text": "two packages."
+        },
+        "_meta": {
+          "claudeCode": {
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "messageId": "msg_transcript_sub"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "_meta": {
+          "claudeCode": {
+            "toolName": "Glob",
+            "parentToolUseId": "toolu_transcript"
+          }
+        },
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call",
+        "name": "Glob",
+        "status": "pending",
+        "title": "Find",
+        "kind": "search",
+        "content": [],
+        "locations": []
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call_update",
+        "rawInput": {
+          "pattern": "*"
+        },
+        "title": "Find `*`"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "agent_t",
+      "update": {
+        "toolCallId": "toolu_transcript_glob",
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "a\nb"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "subagent_state_update",
+        "subagentSessionId": "agent_t",
+        "state": "completed"
+      }
+    }
+  },
+  {
+    "kind": "sessionUpdate",
+    "payload": {
+      "sessionId": "<session>",
+      "update": {
+        "sessionUpdate": "usage_update",
+        "used": 2,
+        "size": 200000,
+        "cost": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      }
+    }
+  },
+  {
+    "kind": "promptResponse",
+    "payload": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "totalTokens": 0
+      },
+      "_meta": {
+        "quota": {
+          "token_count": {
+            "totalTokens": 0,
+            "inputTokens": 0,
+            "cachedInputTokens": 0,
+            "cachedWriteTokens": 0,
+            "outputTokens": 0,
+            "reasoningOutputTokens": 0
+          },
+          "model_usage": []
+        }
+      }
+    }
+  }
+]
