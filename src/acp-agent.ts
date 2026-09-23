@@ -4519,7 +4519,8 @@ export class ClaudeAcpAgent {
                   decisionReason: message.decision_reason,
                   message: message.message,
                 });
-                if (toolCallFieldsOf(session).apply(denied)) {
+                // A denial is final, so it replaces a pinned approval patch.
+                if (toolCallFieldsOf(session).apply(denied, { replacePinnedContent: true })) {
                   await sendUpdate({ sessionId: message.session_id, update: denied });
                 }
                 break;

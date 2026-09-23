@@ -29,6 +29,7 @@ import {
   toolUpdateFromToolResult,
 } from "../tools.js";
 import { toolUpdateFromDiffToolResponse } from "../diff.js";
+import { ToolCallFieldTracker } from "../tool-calls/field-tracker.js";
 import {
   toAcpNotifications,
   promptToClaude,
@@ -19485,6 +19486,26 @@ describe("permission_denied", () => {
     });
     // Top-level denial: nothing to attribute it to.
     expect((sent[0]._meta as any).claudeCode).not.toHaveProperty("parentToolUseId");
+  });
+
+  it("replaces a pinned approval patch with the denial reason", async () => {
+    const tracker = new ToolCallFieldTracker();
+    function* messages() {
+      yield toolUse("toolu_denied");
+      // The approval request pinned an exact patch on the tool call.
+      tracker.pinContent("toolu_denied", [
+        { type: "diff", path: "/tmp/denied.txt", oldText: null, newText: "" },
+      ]);
+      yield denial("toolu_denied");
+    }
+
+    const updates = await run(
+      messages() as any,
+      { toolCallFields: tracker },
+      AIR_CLIENT_CAPABILITIES,
+    );
+
+    expect(denials(updates)).toHaveLength(1);
   });
 
   it("falls back to the SDK's rejection message when there is no decision reason", async () => {
