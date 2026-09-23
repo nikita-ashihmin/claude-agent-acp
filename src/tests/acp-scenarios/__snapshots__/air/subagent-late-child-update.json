@@ -100,24 +100,6 @@
   {
     "kind": "sessionUpdate",
     "payload": {
-      "sessionId": "<id-1>",
-      "update": {
-        "sessionUpdate": "tool_call_update",
-        "toolCallId": "toolu_late_read",
-        "status": "in_progress",
-        "_meta": {
-          "claudeCode": {
-            "toolResponse": {
-              "elapsedTimeSeconds": 4
-            }
-          }
-        }
-      }
-    }
-  },
-  {
-    "kind": "sessionUpdate",
-    "payload": {
       "sessionId": "<session>",
       "update": {
         "sessionUpdate": "usage_update",

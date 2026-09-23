@@ -42,6 +42,8 @@ type SubagentIdentity = {
 const MAX_PENDING_PARENTS = 64;
 const MAX_PENDING_UPDATES = 256;
 const MAX_PENDING_UPDATES_PER_PARENT = 32;
+/** The number of child tool calls whose owning child session the runtime remembers. */
+const MAX_CHILD_TOOL_CALLS = 2048;
 
 /**
  * Owns the connection-local native subagent registry and all ACP lifecycle
@@ -56,6 +58,12 @@ export class NativeSubagentRuntime {
   private readonly identityByToolUse = new Map<string, SubagentIdentity>();
   private readonly controlByToolUse = new Map<string, AcpSessionNotification>();
   private readonly childByParentToolUse = new Map<string, NativeSubagent>();
+  /**
+   * The child session of each tool call that went to a child session. A later
+   * update of that tool call can lose `parentToolUseId`, for example a progress
+   * beat after the child finished. It still belongs to the child session.
+   */
+  private readonly childByToolCall = new Map<string, NativeSubagent>();
   private readonly taskFinishPromises = new Map<string, Promise<void>>();
   private readonly generationByTaskId = new Map<string, number>();
   private readonly pending = new Map<string, AcpSessionNotification[]>();
@@ -133,19 +141,20 @@ export class NativeSubagentRuntime {
     // both transcripts.
     if (forcedSessionId) return { ...notification, sessionId: forcedSessionId };
 
+    const toolCallId =
+      update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update"
+        ? update.toolCallId
+        : undefined;
+    const owner = toolCallId ? this.childByToolCall.get(toolCallId) : undefined;
+    if (owner) return this.toChild(owner, notification, toolCallId);
+
     if (this.enabled && claudeMeta?.parentToolUseId) {
       const child = this.childByParentToolUse.get(claudeMeta.parentToolUseId);
       if (!child || !child.announced) {
         this.buffer(claudeMeta.parentToolUseId, notification);
         return null;
       }
-      if (child.terminalState !== undefined || child.terminalPromise) {
-        this.logger.log(
-          `Session ${this.rootSessionId}: ignoring late update for terminal subagent ${child.sessionId}`,
-        );
-        return null;
-      }
-      return { ...notification, sessionId: child.sessionId };
+      return this.toChild(child, notification, toolCallId);
     }
 
     return notification;
@@ -259,8 +268,35 @@ export class NativeSubagentRuntime {
     this.takePending(parentToolUseId);
   }
 
+  /**
+   * Routes an update to the child session. An update of a finished child is
+   * dropped: it never goes to the root session.
+   */
+  private toChild(
+    child: NativeSubagent,
+    notification: AcpSessionNotification,
+    toolCallId: string | undefined,
+  ): AcpSessionNotification | null {
+    if (child.terminalState !== undefined || child.terminalPromise) {
+      this.logger.log(
+        `Session ${this.rootSessionId}: ignoring late update for terminal subagent ${child.sessionId}`,
+      );
+      return null;
+    }
+    if (toolCallId) {
+      this.childByToolCall.delete(toolCallId);
+      this.childByToolCall.set(toolCallId, child);
+      if (this.childByToolCall.size > MAX_CHILD_TOOL_CALLS) {
+        const oldest = this.childByToolCall.keys().next().value;
+        if (oldest !== undefined) this.childByToolCall.delete(oldest);
+      }
+    }
+    return { ...notification, sessionId: child.sessionId };
+  }
+
   clear(): void {
     this.children.clear();
+    this.childByToolCall.clear();
     this.taskByToolUse.clear();
     this.parentByToolUse.clear();
     this.identityByToolUse.clear();

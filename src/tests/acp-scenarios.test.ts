@@ -612,6 +612,30 @@ describe.skipIf(baselineDir)("ACP scenarios", () => {
       });
     });
 
+    it("drops every update of a tool call of a finished child session", () => {
+      const recorded = air("subagent-late-child-update");
+      const finished = recorded.findIndex(
+        (record) =>
+          record.kind === "sessionUpdate" &&
+          (record.payload as { update: Record<string, any> }).update.sessionUpdate ===
+            "subagent_state_update",
+      );
+      expect(finished).toBeGreaterThan(0);
+      const late = recorded
+        .slice(finished)
+        .filter((record) => record.kind === "sessionUpdate")
+        .map((record) => record.payload as { sessionId: string; update: Record<string, any> })
+        .filter(({ update }) => update.toolCallId === "toolu_late_read");
+      expect(late).toEqual([]);
+      for (const record of recorded.filter((r) => r.kind === "sessionUpdate")) {
+        const { sessionId, update } = record.payload as {
+          sessionId: string;
+          update: Record<string, any>;
+        };
+        if (update.toolCallId === "toolu_late_read") expect(sessionId).toBe("agent_late");
+      }
+    });
+
     it("sends the Bash output as terminal deltas", () => {
       const reports = toolCallReports(air("bash-foreground"), "toolu_bash");
       expect(reports).toContainEqual(
