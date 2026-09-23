@@ -685,6 +685,36 @@ describe("AsyncTaskRuntime", () => {
     });
   });
 
+  it("sends the changed fields again when a retry follows a failed send", async () => {
+    const published: AcpSessionNotification[] = [];
+    let failNext = false;
+    const runtime = new AsyncTaskRuntime(true, "session", async (notification) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("client disconnected");
+      }
+      published.push(notification);
+    });
+    await runtime.taskStarted({
+      task_id: "build",
+      task_type: "local_bash",
+      description: "build",
+      is_backgrounded: true,
+    });
+
+    failNext = true;
+    await expect(
+      runtime.taskNotification("build", "completed", "Done", "/tmp/build.output"),
+    ).rejects.toThrow("client disconnected");
+    await runtime.taskNotification("build", "completed", "Done", "/tmp/build.output");
+
+    expect(published.at(-1)?.update).toMatchObject({
+      sessionUpdate: "async_task_state_update",
+      state: "completed",
+      outputFilePath: "/tmp/build.output",
+    });
+  });
+
   it("finishes remaining tasks and can retry a task whose terminal publication failed", async () => {
     const published: AcpSessionNotification[] = [];
     let failFirstTask = true;

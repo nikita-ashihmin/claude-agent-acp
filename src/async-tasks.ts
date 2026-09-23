@@ -471,7 +471,7 @@ export class AsyncTaskRuntime {
       },
     });
     task.announced = true;
-    changedFields(task, {
+    recordPublished(task, {
       description: task.description,
       outputFilePath: task.outputFilePath,
       toolCallId: task.toolCallId,
@@ -549,6 +549,7 @@ export class AsyncTaskRuntime {
         ...changed,
       },
     });
+    recordPublished(task, changed);
   }
 
   /** Publishes a state, with the output path and the tool call only when they changed. */
@@ -571,23 +572,31 @@ export class AsyncTaskRuntime {
         ...changed,
       },
     });
+    recordPublished(task, changed);
   }
 }
 
 /**
- * The fields whose value differs from what the client holds, and records
- * them. An undefined value is not a field.
+ * The fields whose value differs from what the client holds. An undefined
+ * value is not a field. The caller records the fields with
+ * {@link recordPublished} after the send succeeds, so a retry after a failed
+ * send carries them again.
  */
 function changedFields<T extends Record<string, unknown>>(task: AsyncTask, fields: T): Partial<T> {
   const changed: Partial<T> = {};
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
-    const json = JSON.stringify(value);
-    if (task.published.get(key) === json) continue;
-    task.published.set(key, json);
+    if (task.published.get(key) === JSON.stringify(value)) continue;
     (changed as Record<string, unknown>)[key] = value;
   }
   return changed;
+}
+
+/** Records the fields that the client holds now. An undefined value is not a field. */
+function recordPublished(task: AsyncTask, fields: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) task.published.set(key, JSON.stringify(value));
+  }
 }
 
 /** Recovers background Bash lifecycle data exposed only on its tool result. */
