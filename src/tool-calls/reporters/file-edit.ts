@@ -5,9 +5,9 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk/sdk-tools.js";
 import type { ToolCallContent } from "@agentclientprotocol/sdk";
 import {
-  creationPatchContent,
   patchUpdateFromDiffToolResponse,
   toolUpdateFromDiffToolResponse,
+  writeToolUseChange,
 } from "../../diff.js";
 import { markdownEscape, resultText, textContent, toDisplayPath } from "../content.js";
 import type {
@@ -33,18 +33,22 @@ export class WriteReporter implements ToolReporter {
     };
     if (write?.file_path) {
       // A negotiated client gets the creation patch that the PostToolUse hook
-      // would send for a new file, so that update can be skipped.
-      facts.change = [
-        (capabilities.diffPatch && typeof write.content === "string"
-          ? creationPatchContent(write.file_path, write.content)
-          : undefined) ?? {
+      // would send for a new file, so that update can be skipped. An existing
+      // file never gets a creation patch.
+      const negotiated =
+        capabilities.diffPatch && typeof write.content === "string"
+          ? writeToolUseChange(write.file_path, write.content, cwd)
+          : undefined;
+      facts.change = negotiated?.change ?? [
+        {
           type: "diff",
           path: write.file_path,
           oldText: null,
           newText: write.content,
         },
       ];
-      facts.fileTextKeys = ["content"];
+      // A notice holds no file text, so rawInput keeps the content.
+      if (negotiated?.holdsFileText !== false) facts.fileTextKeys = ["content"];
     } else if (write?.content) {
       facts.display = [textContent(write.content)];
     }

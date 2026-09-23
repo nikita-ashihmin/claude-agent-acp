@@ -82,20 +82,8 @@
           {
             "type": "diff",
             "path": "<cwd>/old.ts",
-            "oldText": null,
-            "newText": "",
-            "_meta": {
-              "jetbrains": {
-                "air": {
-                  "version": 1,
-                  "diffPatch": {
-                    "version": 1,
-                    "format": "git_patch",
-                    "text": "diff --git a<cwd>/old.ts b<cwd>/old.ts\nnew file mode 100644\n--- /dev/null\n+++ b<cwd>/old.ts\n@@ -0,0 +1 @@\n+export const x = 1;\n"
-                  }
-                }
-              }
-            }
+            "oldText": "export const x = 0;\n",
+            "newText": "export const x = 1;\n"
           }
         ]
       }

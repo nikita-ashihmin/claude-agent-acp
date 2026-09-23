@@ -1,5 +1,6 @@
 import { ToolCallContent, ToolCallLocation } from "@agentclientprotocol/sdk";
 import { structuredPatch } from "diff";
+import { readFileSync, statSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { AIR_DIFF_PATCH_CAPABILITY, withAirMeta } from "./air-extension.js";
@@ -343,6 +344,70 @@ export function creationPatchContent(
   return hunk ? patchContent(filePath, gitPatchText(filePath, "create", [hunk])) : undefined;
 }
 
+/** The change of a Write tool call, and whether it holds the new file text. */
+export interface WriteChange {
+  change: ToolCallContent[];
+  holdsFileText: boolean;
+}
+
+/**
+ * The change of a Write tool call for a client that negotiated `diffPatch`.
+ *
+ * A missing file gets a creation patch. An existing file gets the standard
+ * diff from its current text, and the approval preview or the PostToolUse
+ * hook later sends the exact patch. An existing file whose text the adapter
+ * cannot read gets a notice that the Write overwrites it, and no diff: a diff
+ * without old text would claim a creation. Returns undefined when the
+ * adapter does not know if the file exists, or cannot build a creation
+ * patch. The caller then sends the standard diff.
+ *
+ * The check runs while the tool call renders, so it reads the file
+ * synchronously. The read is bounded by {@link MAX_PATCH_FILE_BYTES}.
+ */
+export function writeToolUseChange(
+  filePath: string,
+  content: string,
+  cwd?: string,
+): WriteChange | undefined {
+  const resolvedPath = resolveToolPath(filePath, cwd);
+  let oldText: string | undefined;
+  try {
+    const stats = statSync(resolvedPath);
+    if (stats.isFile() && stats.size <= MAX_PATCH_FILE_BYTES) {
+      oldText = decodeFileText(readFileSync(resolvedPath));
+    }
+  } catch (error) {
+    if (!isMissingFileError(error)) return undefined;
+    const patch = creationPatchContent(filePath, content);
+    return patch ? { change: [patch], holdsFileText: true } : undefined;
+  }
+  if (oldText === undefined) {
+    return {
+      change: [
+        {
+          type: "content",
+          content: {
+            type: "text",
+            text: `Overwrites the existing file \`${filePath}\`. The adapter cannot show its current content.`,
+          },
+        },
+      ],
+      holdsFileText: false,
+    };
+  }
+  return {
+    change: [
+      {
+        type: "diff",
+        path: filePath,
+        oldText,
+        newText: normalizedToolText(filePath, content),
+      },
+    ],
+    holdsFileText: true,
+  };
+}
+
 /**
  * The text of one git patch for `filePath`.
  *
@@ -483,13 +548,21 @@ async function readPatchSource(filePath: string): Promise<string | null | undefi
   try {
     const stats = await stat(filePath);
     if (!stats.isFile() || stats.size > MAX_PATCH_FILE_BYTES) return undefined;
-    const bytes = await readFile(filePath);
-    if (bytes.length > MAX_PATCH_FILE_BYTES) return undefined;
-    if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return undefined;
-    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-    return text.includes("\r") ? undefined : text;
+    const text = decodeFileText(await readFile(filePath));
+    return text?.includes("\r") ? undefined : text;
   } catch (error) {
     return isMissingFileError(error) ? null : undefined;
+  }
+}
+
+/** The text of a file of at most {@link MAX_PATCH_FILE_BYTES} that is not binary and is valid UTF-8. */
+function decodeFileText(bytes: Uint8Array): string | undefined {
+  if (bytes.length > MAX_PATCH_FILE_BYTES) return undefined;
+  if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return undefined;
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    return undefined;
   }
 }
 

@@ -354,6 +354,55 @@ describe("tool-call diff content", () => {
   });
 });
 
+describe("Write tool calls for an existing file", () => {
+  const air = new ClientCapabilities(false, false, true, {
+    client: true,
+    rawInputRendering: false,
+    planContentDelta: false,
+  });
+
+  it("sends the standard diff of the current text, not a creation patch", async () => {
+    const filePath = await temporaryFile("before\n");
+    const toolUse = {
+      id: "write",
+      name: "Write",
+      input: { file_path: filePath, content: "after\n" },
+    };
+
+    expect(toolInfoFromToolUse(toolUse, false, undefined, true).content).toEqual([
+      { type: "diff", path: filePath, oldText: "before\n", newText: "after\n" },
+    ]);
+  });
+
+  it("shows that the Write overwrites a file whose text is unknown", async () => {
+    const filePath = await temporaryFile(Buffer.from([0x61, 0x00, 0x62, 0x0a]));
+    const input = { file_path: filePath, content: "text\n" };
+    const toolUse = { id: "write", name: "Write", input };
+
+    const content = toolInfoFromToolUse(toolUse, false, undefined, true).content;
+    const presentation = buildClaudePermissionPresentation({
+      toolName: "Write",
+      input,
+      toolUseID: "write",
+      capabilities: air,
+      previewContent: await previewPatchContent("Write", input),
+    });
+
+    expect(content).toEqual([
+      {
+        type: "content",
+        content: {
+          type: "text",
+          text: `Overwrites the existing file \`${filePath}\`. The adapter cannot show its current content.`,
+        },
+      },
+    ]);
+    // The approval keeps the notice of the tool call, and rawInput keeps the text.
+    expect(presentation.toolCall.content).toBeUndefined();
+    expect(presentation.toolCall.rawInput).toEqual(input);
+  });
+});
+
 describe("PostToolUse hook patches", () => {
   it("builds the patch from the written file, not from display hunks", async () => {
     const filePath = await temporaryFile("\tkeep\n\told\n");
